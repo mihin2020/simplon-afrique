@@ -66,12 +66,10 @@
 
     <!-- Tableau des utilisateurs -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <input type="checkbox" class="rounded border-gray-300">
-                    </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Prénom
                     </th>
@@ -84,9 +82,11 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rôle
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Statut
-                    </th>
+                    @if($this->isSuperAdmin() && $activeTab === 'administrateurs')
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Participation Jury
+                        </th>
+                    @endif
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                     </th>
@@ -95,9 +95,6 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($users as $user)
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <input type="checkbox" class="rounded border-gray-300">
-                        </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
                                 $nameParts = explode(' ', $user->name, 2);
@@ -126,19 +123,43 @@
                                 {{ $roleLabel }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            @if($user->formateurProfile)
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    <span class="w-1.5 h-1.5 mr-1.5 bg-green-400 rounded-full"></span>
-                                    Actif
-                                </span>
-                            @else
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                    <span class="w-1.5 h-1.5 mr-1.5 bg-gray-400 rounded-full"></span>
-                                    En attente
-                                </span>
-                            @endif
-                        </td>
+                        @if($this->isSuperAdmin() && $activeTab === 'administrateurs')
+                            <td class="px-6 py-4">
+                                @if($user->juryMembers->isNotEmpty())
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach($user->juryMembers as $membership)
+                                            <div class="flex flex-col gap-1 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800" title="{{ $membership->jury->name ?? 'Jury inconnu' }}">
+                                                    {{ Str::limit($membership->jury->name ?? 'Jury', 20) }}
+                                                </span>
+                                                <div class="flex flex-wrap gap-1">
+                                                    @php
+                                                        $roleLabels = [
+                                                            'referent_pedagogique' => 'Réf. Péda.',
+                                                            'directeur_pedagogique' => 'Dir. Péda.',
+                                                            'formateur_senior' => 'Form. Senior',
+                                                        ];
+                                                    @endphp
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                                        {{ $roleLabels[$membership->role] ?? $membership->role }}
+                                                    </span>
+                                                    @if($membership->is_president)
+                                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                                                            </svg>
+                                                            Président
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <span class="text-xs text-gray-400 italic">Aucune participation</span>
+                                @endif
+                            </td>
+                        @endif
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end gap-2">
                                 <button
@@ -165,13 +186,14 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">
+                        <td colspan="{{ ($this->isSuperAdmin() && $activeTab === 'administrateurs') ? 6 : 5 }}" class="px-6 py-12 text-center text-sm text-gray-500">
                             Aucun {{ $activeTab === 'formateurs' ? 'formateur' : 'administrateur' }} trouvé.
                         </td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
+        </div>
 
         <!-- Pagination -->
         <div class="px-6 py-4 border-t border-gray-200">
@@ -282,16 +304,28 @@
                                         <label for="role" class="block text-sm font-medium text-gray-700 mb-1">
                                             Rôle
                                         </label>
-                                        <select
-                                            id="role"
-                                            wire:model="role"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                                        >
-                                            <option value="formateur">Formateur</option>
-                                            @if($this->isSuperAdmin())
-                                                <option value="admin">Administrateur</option>
-                                            @endif
-                                        </select>
+                                        @if($activeTab === 'administrateurs')
+                                            {{-- Pour les administrateurs, le rôle est fixe et non modifiable --}}
+                                            <input
+                                                type="text"
+                                                value="Administrateur"
+                                                disabled
+                                                class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                                            >
+                                            <input type="hidden" wire:model="role" value="admin">
+                                        @else
+                                            {{-- Pour les formateurs, on peut changer le rôle si super admin --}}
+                                            <select
+                                                id="role"
+                                                wire:model="role"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                            >
+                                                <option value="formateur">Formateur</option>
+                                                @if($this->isSuperAdmin())
+                                                    <option value="admin">Administrateur</option>
+                                                @endif
+                                            </select>
+                                        @endif
                                     </div>
                                 @endif
                             </div>

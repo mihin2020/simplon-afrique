@@ -184,7 +184,7 @@ class UserManagement extends Component
             ->whereHas('roles', function ($q) use ($role) {
                 $q->where('roles.id', $role->id);
             })
-            ->with('roles');
+            ->with(['roles', 'juryMembers.jury']);
 
         if ($this->search) {
             $query->where(function ($q) {

@@ -77,6 +77,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get all jury memberships for this user.
+     */
+    public function juryMembers(): HasMany
+    {
+        return $this->hasMany(JuryMember::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

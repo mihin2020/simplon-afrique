@@ -28,7 +28,9 @@ class LoginController extends Controller
             $user = Auth::user()->load('roles');
             $redirectTo = $this->getRedirectPath($user);
 
-            return redirect()->intended($redirectTo);
+            // Utiliser redirect() directement pour forcer la redirection vers le bon dashboard
+            // au lieu de intended() qui pourrait rediriger vers une URL stockée en session
+            return redirect($redirectTo);
         }
 
         return back()

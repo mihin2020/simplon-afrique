@@ -23,6 +23,27 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    // Route générique /dashboard qui redirige vers le bon dashboard selon le rôle
+    Route::get('/dashboard', function () {
+        $user = auth()->user()->load('roles');
+        $roles = $user->roles->pluck('name')->toArray();
+
+        if (in_array('super_admin', $roles) || in_array('admin', $roles)) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        if (in_array('formateur', $roles)) {
+            return redirect()->route('formateur.dashboard');
+        }
+
+        if (in_array('jury', $roles)) {
+            return redirect()->route('jury.dashboard');
+        }
+
+        // Par défaut, redirection vers la page d'accueil
+        return redirect('/');
+    })->name('dashboard');
+
     Route::post('/logout', function () {
         auth()->logout();
         request()->session()->invalidate();
