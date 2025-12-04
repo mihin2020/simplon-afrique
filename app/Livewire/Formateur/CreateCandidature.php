@@ -1,0 +1,194 @@
+<?php
+
+namespace App\Livewire\Formateur;
+
+use App\Models\Badge;
+use App\Models\Candidature;
+use App\Models\CandidatureStep;
+use App\Models\LabellisationStep;
+use Livewire\Component;
+use Livewire\WithFileUploads;
+
+class CreateCandidature extends Component
+{
+    use WithFileUploads;
+
+    public $badgeId;
+
+    public $cv;
+
+    public $cvPreview;
+
+    public $motivationLetter;
+
+    public $motivationLetterPreview;
+
+    public $additionalAttachments = [];
+
+    public $attachmentPreviews = [];
+
+    protected $rules = [
+        'badgeId' => ['required', 'exists:badges,id'],
+        'cv' => ['required', 'file', 'mimes:pdf', 'max:5120'], // 5MB max
+        'motivationLetter' => ['required', 'file', 'mimes:pdf', 'max:5120'],
+        'additionalAttachments.*' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
+    ];
+
+    protected $messages = [
+        'badgeId.required' => 'Veuillez sélectionner un badge.',
+        'badgeId.exists' => 'Le badge sélectionné n\'existe pas.',
+        'cv.required' => 'Le CV est obligatoire.',
+        'cv.mimes' => 'Le CV doit être un fichier PDF.',
+        'cv.max' => 'Le CV ne doit pas dépasser 5 Mo.',
+        'motivationLetter.required' => 'La lettre de motivation est obligatoire.',
+        'motivationLetter.mimes' => 'La lettre de motivation doit être un fichier PDF.',
+        'motivationLetter.max' => 'La lettre de motivation ne doit pas dépasser 5 Mo.',
+        'additionalAttachments.*.mimes' => 'Les pièces jointes doivent être des fichiers PDF, DOC ou DOCX.',
+        'additionalAttachments.*.max' => 'Chaque pièce jointe ne doit pas dépasser 5 Mo.',
+    ];
+
+    public function mount(): void
+    {
+        // La vérification de candidature en cours est faite dans render()
+    }
+
+    public function updatedCv(): void
+    {
+        $this->validateOnly('cv');
+        $this->cvPreview = $this->cv->getClientOriginalName();
+    }
+
+    public function updatedMotivationLetter(): void
+    {
+        $this->validateOnly('motivationLetter');
+        $this->motivationLetterPreview = $this->motivationLetter->getClientOriginalName();
+    }
+
+    public function addAttachment(): void
+    {
+        $this->additionalAttachments[] = null;
+    }
+
+    public function removeAttachment(int $index): void
+    {
+        unset($this->additionalAttachments[$index]);
+        unset($this->attachmentPreviews[$index]);
+        $this->additionalAttachments = array_values($this->additionalAttachments);
+        $this->attachmentPreviews = array_values($this->attachmentPreviews);
+    }
+
+    public function updatedAdditionalAttachments($value, int $index): void
+    {
+        if (isset($this->additionalAttachments[$index]) && $this->additionalAttachments[$index]) {
+            $this->validateOnly("additionalAttachments.{$index}");
+            $this->attachmentPreviews[$index] = $this->additionalAttachments[$index]->getClientOriginalName();
+        }
+    }
+
+    public function submit(): void
+    {
+        $this->validate();
+
+        $user = auth()->user();
+
+        // Vérifier si l'utilisateur a un profil complété
+        if (! $user->formateurProfile) {
+            session()->flash('error', 'Veuillez d\'abord compléter votre profil avant de déposer une candidature.');
+
+            return;
+        }
+
+        // Vérifier si l'utilisateur a déjà une candidature en cours
+        $existingCandidature = $user->candidatures()
+            ->whereIn('status', ['draft', 'submitted', 'in_review'])
+            ->latest()
+            ->first();
+
+        if ($existingCandidature) {
+            session()->flash('error', 'Vous avez déjà une candidature en cours. Vous ne pouvez pas en déposer une nouvelle.');
+
+            return;
+        }
+
+        // Obtenir la première étape de labellisation
+        $firstStep = LabellisationStep::orderBy('display_order')->first();
+
+        if (! $firstStep) {
+            session()->flash('error', 'Erreur : aucune étape de labellisation n\'est configurée.');
+
+            return;
+        }
+
+        // Stocker les fichiers
+        $cvPath = $this->cv->store('candidatures/cv', 'public');
+        $motivationLetterPath = $this->motivationLetter->store('candidatures/motivation-letters', 'public');
+
+        $attachments = [];
+        foreach ($this->additionalAttachments as $index => $attachment) {
+            if ($attachment) {
+                $path = $attachment->store('candidatures/attachments', 'public');
+                $attachments[] = [
+                    'name' => $attachment->getClientOriginalName(),
+                    'path' => $path,
+                ];
+            }
+        }
+
+        // Récupérer le portfolio depuis le profil si disponible
+        $portfolioUrl = $user->formateurProfile?->portfolio_url;
+
+        // Créer la candidature
+        $candidature = Candidature::create([
+            'user_id' => $user->id,
+            'badge_id' => $this->badgeId,
+            'current_step_id' => $firstStep->id,
+            'status' => 'submitted',
+            'cv_path' => $cvPath,
+            'motivation_letter_path' => $motivationLetterPath,
+            'portfolio_url' => $portfolioUrl,
+            'attachments' => ! empty($attachments) ? $attachments : null,
+        ]);
+
+        // Créer le premier step de candidature
+        CandidatureStep::create([
+            'candidature_id' => $candidature->id,
+            'labellisation_step_id' => $firstStep->id,
+            'status' => 'in_progress',
+        ]);
+
+        // Réinitialiser le formulaire
+        $this->reset(['badgeId', 'cv', 'cvPreview', 'motivationLetter', 'motivationLetterPreview', 'additionalAttachments', 'attachmentPreviews']);
+
+        session()->flash('success', 'Votre candidature a été déposée avec succès ! Elle est maintenant en cours d\'examen.');
+
+        // Rediriger vers la page des candidatures
+        $this->redirect(route('formateur.candidatures'), navigate: true);
+    }
+
+    public function render()
+    {
+        $user = auth()->user();
+
+        // Vérifier si l'utilisateur a déjà une candidature en cours
+        $hasActiveCandidature = $user->candidatures()
+            ->whereIn('status', ['draft', 'submitted', 'in_review'])
+            ->exists();
+
+        // Récupérer les badges déjà validés par l'utilisateur
+        $validatedBadgeIds = $user->candidatures()
+            ->where('status', 'validated')
+            ->whereNotNull('badge_id')
+            ->pluck('badge_id')
+            ->toArray();
+
+        // Filtrer les badges : exclure ceux déjà validés
+        $badges = Badge::orderBy('min_score')
+            ->whereNotIn('id', $validatedBadgeIds)
+            ->get();
+
+        return view('livewire.formateur.create-candidature', [
+            'badges' => $badges,
+            'hasActiveCandidature' => $hasActiveCandidature,
+        ]);
+    }
+}
