@@ -279,6 +279,67 @@
                 </div>
             </div>
 
+            <!-- Section CV -->
+            <div class="border-b border-gray-200 pb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Curriculum Vitae (CV)</h3>
+                
+                <!-- Avertissement important -->
+                <div class="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        <div>
+                            <h4 class="text-sm font-medium text-amber-800 mb-1">Important</h4>
+                            <p class="text-sm text-amber-700">
+                                Votre CV sera automatiquement utilisé lors du dépôt d'une candidature. Assurez-vous qu'il soit à jour avant de candidater, car une fois le processus de candidature enclenché, vous ne pourrez plus le modifier.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    @if($cvPreview)
+                        <!-- CV existant -->
+                        <div class="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <div>
+                                    <p class="text-sm font-medium text-green-800">{{ $cvPreview }}</p>
+                                    <p class="text-xs text-green-600">CV actuellement enregistré</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                wire:click="removeCv"
+                                wire:confirm="Êtes-vous sûr de vouloir supprimer votre CV ?"
+                                class="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition"
+                                title="Supprimer le CV"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    @endif
+
+                    <label for="cv" class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ $cvPreview ? 'Remplacer le CV' : 'Téléverser votre CV' }}
+                    </label>
+                    <input
+                        type="file"
+                        id="cv"
+                        wire:model="cv"
+                        accept=".pdf"
+                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                    >
+                    @error('cv') <span class="text-sm text-red-600 mt-1 block">{{ $message }}</span> @enderror
+                    <p class="mt-1 text-xs text-gray-500">Format accepté : PDF. Taille max : 5MB</p>
+                </div>
+            </div>
+
             <!-- Section Certifications -->
             <div class="border-b border-gray-200 pb-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">Compétences et Certifications</h3>
@@ -338,7 +399,7 @@
                                 </div>
                             @endif
                         </div>
-                        @if($certificationSearch && !$availableCertifications->contains('name', $certificationSearch))
+                        @if($certificationSearch && trim($certificationSearch) !== '')
                             <button
                                 type="button"
                                 wire:click="addNewCertification"

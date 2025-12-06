@@ -173,6 +173,18 @@
                         @endif
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end gap-2">
+                                @if($activeTab === 'formateurs')
+                                    <button
+                                        wire:click="openDetailsModal('{{ $user->id }}')"
+                                        class="text-gray-600 hover:text-gray-900"
+                                        title="Voir les détails"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                    </button>
+                                @endif
                                 <button
                                     wire:click="openModal('{{ $user->id }}')"
                                     class="text-blue-600 hover:text-blue-900"
@@ -263,6 +275,82 @@
                             </h3>
 
                             <div class="space-y-4">
+                                @if($activeTab === 'formateurs' || $role === 'formateur')
+                                    {{-- Champs spécifiques aux formateurs --}}
+                                    <div class="grid grid-cols-2 gap-4">
+                                        {{-- Pays --}}
+                                        <div>
+                                            <label for="country" class="block text-sm font-medium text-gray-700 mb-1">
+                                                Pays
+                                            </label>
+                                            <div x-data="{ 
+                                                open: false, 
+                                                selected: @entangle('country'),
+                                                getDisplayText() {
+                                                    if (!this.selected) return 'Sélectionner un pays';
+                                                    const item = @js($countries).find(c => c.name === this.selected);
+                                                    return item ? item.flag + ' ' + item.name : 'Sélectionner un pays';
+                                                }
+                                            }" class="relative">
+                                                <button
+                                                    type="button"
+                                                    @click="open = !open"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-left flex items-center justify-between"
+                                                >
+                                                    <span x-text="getDisplayText()"></span>
+                                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                    </svg>
+                                                </button>
+                                                <div
+                                                    x-show="open"
+                                                    @click.away="open = false"
+                                                    x-transition
+                                                    class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        @click="selected = ''; $wire.set('country', ''); open = false"
+                                                        class="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                    >
+                                                        Sélectionner un pays
+                                                    </button>
+                                                    @foreach($countries as $countryItem)
+                                                        <button
+                                                            type="button"
+                                                            @click="selected = '{{ $countryItem['name'] }}'; $wire.set('country', '{{ $countryItem['name'] }}'); open = false"
+                                                            :class="selected === '{{ $countryItem['name'] }}' ? 'bg-red-50' : ''"
+                                                            class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                                                        >
+                                                            <span class="text-xl">{{ $countryItem['flag'] }}</span>
+                                                            <span>{{ $countryItem['name'] }}</span>
+                                                        </button>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                            @error('country') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        {{-- Organisation --}}
+                                        <div>
+                                            <label for="organizationId" class="block text-sm font-medium text-gray-700 mb-1">
+                                                Organisation
+                                            </label>
+                                            <select
+                                                id="organizationId"
+                                                wire:model="organizationId"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                            >
+                                                <option value="">Sélectionner une organisation</option>
+                                                @foreach($organizations as $organization)
+                                                    <option value="{{ $organization->id }}">{{ $organization->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('organizationId') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+                                @endif
+
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label for="firstName" class="block text-sm font-medium text-gray-700 mb-1">
@@ -309,6 +397,96 @@
                                         <p class="mt-1 text-xs text-gray-500">Un email d'activation sera envoyé à cette adresse.</p>
                                     @endif
                                 </div>
+
+                                @if($activeTab === 'formateurs' || $role === 'formateur')
+                                    {{-- Téléphone et Type de formation pour les formateurs --}}
+                                    <div class="grid grid-cols-2 gap-4">
+                                        {{-- Code pays téléphone --}}
+                                        <div>
+                                            <label for="phoneCountryCode" class="block text-sm font-medium text-gray-700 mb-1">
+                                                Code pays
+                                            </label>
+                                            <div x-data="{ 
+                                                open: false, 
+                                                selected: @entangle('phoneCountryCode'),
+                                                getDisplayText() {
+                                                    if (!this.selected) return 'Sélectionner un code';
+                                                    const item = @js($phoneCountryCodes).find(c => c.code === this.selected);
+                                                    return item ? item.flag + ' ' + item.code + ' - ' + item.country : 'Sélectionner un code';
+                                                }
+                                            }" class="relative">
+                                                <button
+                                                    type="button"
+                                                    @click="open = !open"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-left flex items-center justify-between"
+                                                >
+                                                    <span x-text="getDisplayText()"></span>
+                                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                    </svg>
+                                                </button>
+                                                <div
+                                                    x-show="open"
+                                                    @click.away="open = false"
+                                                    x-transition
+                                                    class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        @click="selected = ''; $wire.set('phoneCountryCode', ''); open = false"
+                                                        class="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                    >
+                                                        Sélectionner un code
+                                                    </button>
+                                                    @foreach($phoneCountryCodes as $phoneCode)
+                                                        <button
+                                                            type="button"
+                                                            @click="selected = '{{ $phoneCode['code'] }}'; $wire.set('phoneCountryCode', '{{ $phoneCode['code'] }}'); open = false"
+                                                            :class="selected === '{{ $phoneCode['code'] }}' ? 'bg-red-50' : ''"
+                                                            class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                                                        >
+                                                            <span class="text-xl">{{ $phoneCode['flag'] }}</span>
+                                                            <span>{{ $phoneCode['code'] }} - {{ $phoneCode['country'] }}</span>
+                                                        </button>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                            @error('phoneCountryCode') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        {{-- Numéro de téléphone --}}
+                                        <div>
+                                            <label for="phoneNumber" class="block text-sm font-medium text-gray-700 mb-1">
+                                                Numéro de téléphone
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="phoneNumber"
+                                                wire:model="phoneNumber"
+                                                placeholder="06 12 34 56 78"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                            >
+                                            @error('phoneNumber') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Type de formation --}}
+                                    <div>
+                                        <label for="trainingType" class="block text-sm font-medium text-gray-700 mb-1">
+                                            Type de formation
+                                        </label>
+                                        <select
+                                            id="trainingType"
+                                            wire:model="trainingType"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                        >
+                                            <option value="">Sélectionner un type</option>
+                                            <option value="interne">Interne</option>
+                                            <option value="externe">Externe</option>
+                                        </select>
+                                        @error('trainingType') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                    </div>
+                                @endif
 
                                 @if($editingUserId)
                                     <div>
@@ -367,6 +545,201 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Modal de détails du formateur -->
+    @if($showDetailsModal && $viewingUser)
+        <div 
+            class="fixed inset-0 z-50 overflow-y-auto" 
+            x-data="{ show: @entangle('showDetailsModal') }" 
+            x-show="show"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+        >
+            <div class="flex items-start justify-center min-h-screen px-4 pt-16 pb-20 text-center sm:block sm:p-0">
+                <!-- Overlay -->
+                <div 
+                    class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" 
+                    x-on:click="show = false"
+                ></div>
+
+                <!-- Modal -->
+                <div 
+                    class="inline-block align-top bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
+                    x-transition:enter="ease-out duration-300"
+                    x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                    x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                    x-transition:leave="ease-in duration-200"
+                    x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                    x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                >
+                    <div class="bg-white px-6 pt-5 pb-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-semibold text-gray-900">
+                                Détails du formateur
+                            </h3>
+                            <button
+                                type="button"
+                                wire:click="closeDetailsModal"
+                                class="text-gray-400 hover:text-gray-600"
+                            >
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="space-y-6">
+                            <!-- Informations personnelles -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Informations personnelles</h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span class="text-xs text-gray-500">Prénom</span>
+                                        <p class="text-sm font-medium text-gray-900">{{ $viewingUser->first_name ?? '-' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs text-gray-500">Nom</span>
+                                        <p class="text-sm font-medium text-gray-900">{{ $viewingUser->name ?? '-' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs text-gray-500">Email</span>
+                                        <p class="text-sm font-medium text-gray-900">{{ $viewingUser->email }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs text-gray-500">Téléphone</span>
+                                        <p class="text-sm font-medium text-gray-900">
+                                            @if($viewingUser->formateurProfile?->phone_number)
+                                                {{ $viewingUser->formateurProfile->phone_country_code }} {{ $viewingUser->formateurProfile->phone_number }}
+                                            @else
+                                                -
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Localisation et Organisation -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Localisation et Organisation</h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span class="text-xs text-gray-500">Pays</span>
+                                        <p class="text-sm font-medium text-gray-900">{{ $viewingUser->formateurProfile?->country ?? '-' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs text-gray-500">Organisation</span>
+                                        <p class="text-sm font-medium text-gray-900">{{ $viewingUser->formateurProfile?->organization?->name ?? '-' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs text-gray-500">Type de formation</span>
+                                        <p class="text-sm font-medium text-gray-900">
+                                            @if($viewingUser->formateurProfile?->training_type)
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $viewingUser->formateurProfile->training_type === 'interne' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }}">
+                                                    {{ ucfirst($viewingUser->formateurProfile->training_type) }}
+                                                </span>
+                                            @else
+                                                -
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Profil professionnel -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Profil professionnel</h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span class="text-xs text-gray-500">Profil technique</span>
+                                        <p class="text-sm font-medium text-gray-900">{{ $viewingUser->formateurProfile?->technical_profile ?? '-' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs text-gray-500">Années d'expérience</span>
+                                        <p class="text-sm font-medium text-gray-900">
+                                            @php
+                                                $experienceLabels = [
+                                                    'moins_de_2_ans' => 'Moins de 2 ans',
+                                                    'entre_2_et_5_ans' => 'Entre 2 et 5 ans',
+                                                    'plus_de_5_ans' => 'Plus de 5 ans',
+                                                ];
+                                            @endphp
+                                            {{ $experienceLabels[$viewingUser->formateurProfile?->years_of_experience] ?? $viewingUser->formateurProfile?->years_of_experience ?? '-' }}
+                                        </p>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <span class="text-xs text-gray-500">Portfolio</span>
+                                        <p class="text-sm font-medium text-gray-900">
+                                            @if($viewingUser->formateurProfile?->portfolio_url)
+                                                <a href="{{ $viewingUser->formateurProfile->portfolio_url }}" target="_blank" class="text-blue-600 hover:underline">
+                                                    {{ $viewingUser->formateurProfile->portfolio_url }}
+                                                </a>
+                                            @else
+                                                -
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <span class="text-xs text-gray-500">CV</span>
+                                        <p class="text-sm font-medium text-gray-900">
+                                            @if($viewingUser->formateurProfile?->cv_path)
+                                                @php
+                                                    $cvFilename = basename($viewingUser->formateurProfile->cv_path);
+                                                    $cvDisplayName = preg_match('/^\d+_(.+)$/', $cvFilename, $matches) ? $matches[1] : $cvFilename;
+                                                @endphp
+                                                <a href="{{ Storage::url($viewingUser->formateurProfile->cv_path) }}" target="_blank" class="inline-flex items-center gap-2 text-blue-600 hover:underline">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                                    </svg>
+                                                    {{ $cvDisplayName }}
+                                                </a>
+                                            @else
+                                                <span class="text-gray-400">Non téléversé</span>
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Certifications -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Compétences et Certifications</h4>
+                                @if($viewingUser->formateurProfile?->certifications && $viewingUser->formateurProfile->certifications->count() > 0)
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach($viewingUser->formateurProfile->certifications as $certification)
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                {{ $certification->name }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <p class="text-sm text-gray-500 italic">Aucune certification renseignée</p>
+                                @endif
+                            </div>
+
+                            <!-- Date d'inscription -->
+                            <div class="text-xs text-gray-500 text-center">
+                                Inscrit le {{ $viewingUser->created_at->format('d/m/Y à H:i') }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 px-6 py-3 flex justify-end">
+                        <button
+                            type="button"
+                            wire:click="closeDetailsModal"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                        >
+                            Fermer
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -205,6 +205,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin/evaluation-grid/{grid}', function (\App\Models\EvaluationGrid $grid) {
             return view('admin.evaluation-grid', ['gridId' => $grid->id]);
         })->name('admin.evaluation-grid.detail');
+
+        // Gestion des organisations (uniquement super admin)
+        Route::get('/admin/organizations', function () {
+            return view('admin.organizations');
+        })->name('admin.organizations');
     });
 
     // Routes pour les membres du jury

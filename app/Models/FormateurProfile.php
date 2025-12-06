@@ -46,6 +46,9 @@ class FormateurProfile extends Model
         'technical_profile',
         'years_of_experience',
         'portfolio_url',
+        'cv_path',
+        'organization_id',
+        'training_type',
     ];
 
     /**
@@ -54,6 +57,14 @@ class FormateurProfile extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the organization associated with this formateur profile.
+     */
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
     }
 
     /**

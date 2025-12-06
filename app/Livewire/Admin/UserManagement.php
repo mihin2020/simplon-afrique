@@ -2,6 +2,9 @@
 
 namespace App\Livewire\Admin;
 
+use App\Data\CountriesData;
+use App\Models\FormateurProfile;
+use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +19,10 @@ class UserManagement extends Component
 
     public $showModal = false;
 
+    public $showDetailsModal = false;
+
+    public $viewingUser = null;
+
     public $editingUserId = null;
 
     public $firstName = '';
@@ -25,6 +32,16 @@ class UserManagement extends Component
     public $email = '';
 
     public $role = 'formateur';
+
+    public $country = '';
+
+    public $organizationId = '';
+
+    public $phoneCountryCode = '+33';
+
+    public $phoneNumber = '';
+
+    public $trainingType = '';
 
     public $search = '';
 
@@ -85,8 +102,20 @@ class UserManagement extends Component
             }
             $this->email = $user->email;
             $this->role = $userRole;
+
+            // Charger les données du profil formateur si c'est un formateur
+            if ($userRole === 'formateur' && $user->formateurProfile) {
+                $profile = $user->formateurProfile;
+                $this->country = $profile->country ?? '';
+                $this->organizationId = $profile->organization_id ?? '';
+                $this->phoneCountryCode = $profile->phone_country_code ?? '+33';
+                $this->phoneNumber = $profile->phone_number ?? '';
+                $this->trainingType = $profile->training_type ?? '';
+            } else {
+                $this->reset(['country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
+            }
         } else {
-            $this->reset(['firstName', 'lastName', 'email']);
+            $this->reset(['firstName', 'lastName', 'email', 'country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
             // Si l'utilisateur n'est pas super_admin, forcer le rôle formateur
             $this->role = ($this->activeTab === 'formateurs' || ! $this->isSuperAdmin()) ? 'formateur' : 'admin';
         }
@@ -95,7 +124,19 @@ class UserManagement extends Component
     public function closeModal(): void
     {
         $this->showModal = false;
-        $this->reset(['editingUserId', 'firstName', 'lastName', 'email', 'role']);
+        $this->reset(['editingUserId', 'firstName', 'lastName', 'email', 'role', 'country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
+    }
+
+    public function openDetailsModal(string $userId): void
+    {
+        $this->viewingUser = User::with(['formateurProfile.organization', 'formateurProfile.certifications', 'roles'])->find($userId);
+        $this->showDetailsModal = true;
+    }
+
+    public function closeDetailsModal(): void
+    {
+        $this->showDetailsModal = false;
+        $this->viewingUser = null;
     }
 
     public function save(): void
@@ -107,12 +148,23 @@ class UserManagement extends Component
             return;
         }
 
-        $this->validate([
+        $rules = [
             'firstName' => ['required', 'string', 'max:255'],
             'lastName' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,'.$this->editingUserId],
             'role' => ['required', 'string', 'in:formateur,admin'],
-        ]);
+        ];
+
+        // Ajouter les règles de validation pour les formateurs uniquement
+        if ($this->role === 'formateur') {
+            $rules['country'] = ['nullable', 'string', 'max:255'];
+            $rules['organizationId'] = ['nullable', 'uuid', 'exists:organizations,id'];
+            $rules['phoneCountryCode'] = ['nullable', 'string', 'max:10'];
+            $rules['phoneNumber'] = ['nullable', 'string', 'max:30'];
+            $rules['trainingType'] = ['nullable', 'string', 'in:interne,externe'];
+        }
+
+        $this->validate($rules);
 
         if ($this->editingUserId) {
             $user = User::findOrFail($this->editingUserId);
@@ -126,6 +178,25 @@ class UserManagement extends Component
             $role = Role::where('name', $this->role)->first();
             if ($role) {
                 $user->roles()->sync([$role->id]);
+            }
+
+            // Mettre à jour ou créer le profil formateur si c'est un formateur
+            if ($this->role === 'formateur') {
+                $profileData = [
+                    'phone_country_code' => $this->phoneCountryCode ?: null,
+                    'phone_number' => $this->phoneNumber ?: null,
+                    'country' => $this->country ?: null,
+                    'organization_id' => $this->organizationId ?: null,
+                    'training_type' => $this->trainingType ?: null,
+                ];
+
+                $profile = $user->formateurProfile;
+                if ($profile) {
+                    $profile->update($profileData);
+                } else {
+                    $profileData['user_id'] = $user->id;
+                    FormateurProfile::create($profileData);
+                }
             }
         } else {
             // Créer l'utilisateur avec un mot de passe temporaire (qui sera changé lors de l'activation)
@@ -151,6 +222,18 @@ class UserManagement extends Component
 
             // Restaurer l'URL originale
             \Illuminate\Support\Facades\URL::forceRootUrl(config('app.url'));
+
+            // Créer le profil formateur si c'est un formateur
+            if ($this->role === 'formateur') {
+                FormateurProfile::create([
+                    'user_id' => $user->id,
+                    'phone_country_code' => $this->phoneCountryCode ?: null,
+                    'phone_number' => $this->phoneNumber ?: null,
+                    'country' => $this->country ?: null,
+                    'organization_id' => $this->organizationId ?: null,
+                    'training_type' => $this->trainingType ?: null,
+                ]);
+            }
         }
 
         $this->closeModal();
@@ -202,6 +285,9 @@ class UserManagement extends Component
 
         return view('livewire.admin.user-management', [
             'users' => $users,
+            'organizations' => Organization::orderBy('name')->get(),
+            'countries' => CountriesData::getCountries(),
+            'phoneCountryCodes' => CountriesData::getPhoneCountryCodes(),
         ]);
     }
 }

@@ -66,4 +66,3 @@ class EvaluationGridForm extends Component
         return view('livewire.admin.evaluation-grid-form');
     }
 }
-

@@ -15,10 +15,6 @@ class CreateCandidature extends Component
 
     public $badgeId;
 
-    public $cv;
-
-    public $cvPreview;
-
     public $motivationLetter;
 
     public $motivationLetterPreview;
@@ -29,7 +25,6 @@ class CreateCandidature extends Component
 
     protected $rules = [
         'badgeId' => ['required', 'exists:badges,id'],
-        'cv' => ['required', 'file', 'mimes:pdf', 'max:5120'], // 5MB max
         'motivationLetter' => ['required', 'file', 'mimes:pdf', 'max:5120'],
         'additionalAttachments.*' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
     ];
@@ -37,9 +32,6 @@ class CreateCandidature extends Component
     protected $messages = [
         'badgeId.required' => 'Veuillez sélectionner un badge.',
         'badgeId.exists' => 'Le badge sélectionné n\'existe pas.',
-        'cv.required' => 'Le CV est obligatoire.',
-        'cv.mimes' => 'Le CV doit être un fichier PDF.',
-        'cv.max' => 'Le CV ne doit pas dépasser 5 Mo.',
         'motivationLetter.required' => 'La lettre de motivation est obligatoire.',
         'motivationLetter.mimes' => 'La lettre de motivation doit être un fichier PDF.',
         'motivationLetter.max' => 'La lettre de motivation ne doit pas dépasser 5 Mo.',
@@ -50,12 +42,6 @@ class CreateCandidature extends Component
     public function mount(): void
     {
         // La vérification de candidature en cours est faite dans render()
-    }
-
-    public function updatedCv(): void
-    {
-        $this->validateOnly('cv');
-        $this->cvPreview = $this->cv->getClientOriginalName();
     }
 
     public function updatedMotivationLetter(): void
@@ -98,6 +84,13 @@ class CreateCandidature extends Component
             return;
         }
 
+        // Vérifier si l'utilisateur a un CV dans son profil
+        if (! $user->formateurProfile->cv_path) {
+            session()->flash('error', 'Veuillez d\'abord téléverser votre CV dans votre profil avant de déposer une candidature.');
+
+            return;
+        }
+
         // Vérifier si l'utilisateur a déjà une candidature en cours
         $existingCandidature = $user->candidatures()
             ->whereIn('status', ['draft', 'submitted', 'in_review'])
@@ -119,8 +112,14 @@ class CreateCandidature extends Component
             return;
         }
 
-        // Stocker les fichiers
-        $cvPath = $this->cv->store('candidatures/cv', 'public');
+        // Copier le CV du profil vers la candidature (version figée)
+        $profileCvPath = $user->formateurProfile->cv_path;
+        $cvExtension = pathinfo($profileCvPath, PATHINFO_EXTENSION);
+        $cvNewName = 'candidatures/cv/'.uniqid().'_'.time().'.'.$cvExtension;
+        \Illuminate\Support\Facades\Storage::disk('public')->copy($profileCvPath, $cvNewName);
+        $cvPath = $cvNewName;
+
+        // Stocker la lettre de motivation
         $motivationLetterPath = $this->motivationLetter->store('candidatures/motivation-letters', 'public');
 
         $attachments = [];
@@ -157,7 +156,7 @@ class CreateCandidature extends Component
         ]);
 
         // Réinitialiser le formulaire
-        $this->reset(['badgeId', 'cv', 'cvPreview', 'motivationLetter', 'motivationLetterPreview', 'additionalAttachments', 'attachmentPreviews']);
+        $this->reset(['badgeId', 'motivationLetter', 'motivationLetterPreview', 'additionalAttachments', 'attachmentPreviews']);
 
         session()->flash('success', 'Votre candidature a été déposée avec succès ! Elle est maintenant en cours d\'examen.');
 
