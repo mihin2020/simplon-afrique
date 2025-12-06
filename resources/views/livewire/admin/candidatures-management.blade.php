@@ -156,11 +156,39 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    @if($candidature->currentStep)
-                                        <span class="text-sm text-gray-900">{{ $candidature->currentStep->label }}</span>
-                                    @else
-                                        <span class="text-sm text-gray-400">Non défini</span>
-                                    @endif
+                                    @php
+                                        $currentStepNumber = $candidature->getCurrentStepNumber();
+                                        $totalSteps = $candidature->getTotalSteps();
+                                        $currentStepLabel = $candidature->getCurrentStepLabel();
+                                        
+                                        // Si la candidature est validée, la progression est à 100%
+                                        if ($candidature->status === 'validated') {
+                                            $progressPercent = 100;
+                                        } else {
+                                            $progressPercent = $totalSteps > 0 ? (($currentStepNumber - 1) / $totalSteps) * 100 : 0;
+                                        }
+                                        
+                                        // Couleur selon l'avancement
+                                        $stepColor = match(true) {
+                                            $candidature->status === 'validated' => 'green',
+                                            $candidature->status === 'rejected' => 'red',
+                                            $currentStepNumber === 1 => 'blue',
+                                            $currentStepNumber === $totalSteps => 'green',
+                                            default => 'yellow',
+                                        };
+                                    @endphp
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold bg-{{ $stepColor }}-100 text-{{ $stepColor }}-700">
+                                                {{ $currentStepNumber }}
+                                            </span>
+                                            <span class="text-sm text-gray-900">{{ $currentStepLabel }}</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                                            <div class="bg-{{ $stepColor }}-500 h-1.5 rounded-full transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
+                                        </div>
+                                        <span class="text-xs text-gray-500">Étape {{ $currentStepNumber }}/{{ $totalSteps }}</span>
+                                    </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @php

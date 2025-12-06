@@ -35,6 +35,6 @@
         <h2 class="text-2xl font-semibold text-gray-900">Gestion du jury : {{ $jury->name }}</h2>
     </div>
 
-    @include('livewire.admin.jury-detail', ['jury' => $jury, 'isSuperAdmin' => $isSuperAdmin, 'availableCandidatures' => $availableCandidatures, 'evaluationsData' => $evaluationsData])
+    @include('livewire.admin.jury-detail', ['jury' => $jury, 'isSuperAdmin' => $isSuperAdmin, 'availableCandidatures' => $availableCandidatures, 'evaluationsData' => $evaluationsData, 'availableGrids' => $availableGrids ?? collect()])
 @endsection
 

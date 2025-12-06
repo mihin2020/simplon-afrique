@@ -4,7 +4,9 @@ namespace App\Livewire\Jury;
 
 use App\Models\Badge;
 use App\Models\Candidature;
+use App\Models\CandidatureStep;
 use App\Models\Evaluation;
+use App\Models\LabellisationStep;
 use App\Services\EvaluationCalculationService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -98,11 +100,29 @@ class PresidentValidation extends Component
                     'president_validated_at' => now(),
                 ]);
 
+            // Récupérer l'étape "Certification"
+            $certificationStep = LabellisationStep::where('name', 'certification')->first();
+
             // Mettre à jour la candidature
             $this->candidature->update([
                 'badge_id' => $this->proposedBadge->id,
                 'status' => 'validated',
+                'current_step_id' => $certificationStep?->id,
             ]);
+
+            // Créer ou mettre à jour le CandidatureStep pour l'étape Certification
+            if ($certificationStep) {
+                CandidatureStep::updateOrCreate(
+                    [
+                        'candidature_id' => $this->candidature->id,
+                        'labellisation_step_id' => $certificationStep->id,
+                    ],
+                    [
+                        'status' => 'completed',
+                        'completed_at' => now(),
+                    ]
+                );
+            }
         });
 
         session()->flash('success', 'La candidature a été validée avec succès. Le badge '.$this->proposedBadge->label.' a été attribué.');

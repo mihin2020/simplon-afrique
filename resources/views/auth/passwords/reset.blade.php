@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Connexion Formateur - Simplon Africa</title>
+    <title>Réinitialiser le mot de passe - Simplon Africa</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Tailwind via CDN pour le prototypage UI -->
@@ -30,9 +30,9 @@
                         class="h-16 w-auto"
                     >
                 </div>
-                <h1 class="text-4xl font-semibold text-gray-900 mb-2">Connexion Formateur</h1>
+                <h1 class="text-4xl font-semibold text-gray-900 mb-2">Réinitialiser le mot de passe</h1>
                 <p class="text-sm text-gray-500">
-                    Bienvenue sur votre espace. Connectez-vous pour suivre votre labellisation.
+                    Entrez votre nouveau mot de passe ci-dessous.
                 </p>
             </div>
 
@@ -52,8 +52,10 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('login') }}" class="space-y-6">
+            <form method="POST" action="{{ route('password.update') }}" class="space-y-6">
                 @csrf
+
+                <input type="hidden" name="token" value="{{ $token }}">
 
                 <div class="space-y-1">
                     <label for="email" class="block text-sm font-medium text-gray-700">
@@ -65,31 +67,45 @@
                             name="email"
                             type="email"
                             required
-                            autofocus
-                            value="{{ old('email') }}"
-                            class="block w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-red-600 focus:ring-2 focus:ring-red-100 focus:outline-none"
-                            placeholder="Entrez votre adresse email"
+                            value="{{ $email ?? old('email') }}"
+                            readonly
+                            class="block w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-500 shadow-sm cursor-not-allowed"
                         >
                     </div>
                 </div>
 
                 <div class="space-y-1">
-                    <div class="flex items-center justify-between">
-                        <label for="password" class="block text-sm font-medium text-gray-700">
-                            Mot de passe
-                        </label>
-                        <a href="{{ route('password.request') }}" class="text-xs font-medium text-red-600 hover:text-red-700">
-                            Mot de passe oublié ?
-                        </a>
-                    </div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">
+                        Nouveau mot de passe
+                    </label>
                     <div class="relative">
                         <input
                             id="password"
                             name="password"
                             type="password"
                             required
+                            autofocus
                             class="block w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-red-600 focus:ring-2 focus:ring-red-100 focus:outline-none"
-                            placeholder="Entrez votre mot de passe"
+                            placeholder="Entrez votre nouveau mot de passe"
+                        >
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">
+                        Le mot de passe doit contenir au moins 8 caractères.
+                    </p>
+                </div>
+
+                <div class="space-y-1">
+                    <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
+                        Confirmer le mot de passe
+                    </label>
+                    <div class="relative">
+                        <input
+                            id="password_confirmation"
+                            name="password_confirmation"
+                            type="password"
+                            required
+                            class="block w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-red-600 focus:ring-2 focus:ring-red-100 focus:outline-none"
+                            placeholder="Confirmez votre nouveau mot de passe"
                         >
                     </div>
                 </div>
@@ -98,19 +114,17 @@
                     type="submit"
                     class="w-full inline-flex justify-center items-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 transition"
                 >
-                    Se connecter
+                    Réinitialiser le mot de passe
                 </button>
             </form>
 
             <p class="mt-6 text-center text-xs text-gray-500">
-                Première connexion formateur ?
-                <a href="#" class="font-medium text-red-600 hover:text-red-700">
-                    Créer mon mot de passe
+                <a href="{{ route('login') }}" class="font-medium text-red-600 hover:text-red-700">
+                    Retour à la connexion
                 </a>
             </p>
         </div>
     </div>
 </body>
 </html>
-
 

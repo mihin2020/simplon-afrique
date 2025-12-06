@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Events\EvaluationSubmitted;
 use App\Http\Controllers\Controller;
 use App\Models\Candidature;
+use App\Models\CandidatureStep;
 use App\Models\Evaluation;
 use App\Models\EvaluationGrid;
 use App\Models\EvaluationScore;
 use App\Models\Jury;
 use App\Models\JuryMember;
+use App\Models\LabellisationStep;
 use App\Services\EvaluationCalculationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -194,6 +196,11 @@ class JuryController extends Controller
             }
         }
 
+        // Charger les grilles actives pour la sélection (uniquement pour super admin)
+        $availableGrids = $isSuperAdmin
+            ? EvaluationGrid::where('is_active', true)->orderBy('name')->get()
+            : collect();
+
         return view('admin.jury-detail', [
             'juryId' => $jury->id,
             'jury' => $jury,
@@ -202,6 +209,7 @@ class JuryController extends Controller
             'availableCandidatures' => $availableCandidatures,
             'evaluationsData' => $evaluationsData,
             'presidentData' => $presidentData,
+            'availableGrids' => $availableGrids,
         ]);
     }
 
@@ -545,17 +553,36 @@ class JuryController extends Controller
             ]);
         }
 
+        // Récupérer l'étape "Certification"
+        $certificationStep = LabellisationStep::where('name', 'certification')->first();
+
         // Mettre à jour le statut de la candidature
         if ($decision === 'approved') {
             // Attribuer le badge demandé si approuvé
             $candidature->update([
                 'status' => 'validated',
+                'current_step_id' => $certificationStep?->id,
             ]);
+
+            // Créer ou mettre à jour le CandidatureStep pour l'étape Certification
+            if ($certificationStep) {
+                CandidatureStep::updateOrCreate(
+                    [
+                        'candidature_id' => $candidature->id,
+                        'labellisation_step_id' => $certificationStep->id,
+                    ],
+                    [
+                        'status' => 'completed',
+                        'completed_at' => now(),
+                    ]
+                );
+            }
 
             $message = 'La candidature a été approuvée. Le badge a été attribué au formateur.';
         } else {
             $candidature->update([
                 'status' => 'rejected',
+                'current_step_id' => $certificationStep?->id,
             ]);
 
             $message = 'La candidature a été rejetée.';

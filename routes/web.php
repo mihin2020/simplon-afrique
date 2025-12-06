@@ -14,6 +14,19 @@ Route::middleware('guest')->group(function () {
 
     Route::post('/login', [LoginController::class, 'login']);
 
+    // Réinitialisation de mot de passe
+    Route::get('/password/reset', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'showLinkRequestForm'])
+        ->name('password.request');
+
+    Route::post('/password/email', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'sendResetLinkEmail'])
+        ->name('password.email');
+
+    Route::get('/password/reset/{token}', [\App\Http\Controllers\Auth\ResetPasswordController::class, 'showResetForm'])
+        ->name('password.reset');
+
+    Route::post('/password/reset', [\App\Http\Controllers\Auth\ResetPasswordController::class, 'reset'])
+        ->name('password.update');
+
     // Activation du compte (création du mot de passe)
     Route::get('/activation/{user}', [ActivationController::class, 'showCreatePasswordForm'])
         ->name('activation.create-password');

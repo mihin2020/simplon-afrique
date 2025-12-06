@@ -130,8 +130,27 @@
                 </div>
                 <div>
                     <div class="text-sm font-medium text-gray-700 mb-1">Étape actuelle</div>
-                    @if($candidature->currentStep)
-                        <span class="text-gray-900">{{ $candidature->currentStep->label }}</span>
+                    @php
+                        $realCurrentStep = $candidature->getRealCurrentStep();
+                    @endphp
+                    @if($realCurrentStep)
+                        @if($candidature->status === 'validated')
+                            <span class="inline-flex items-center gap-1 text-green-600 font-medium">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                {{ $realCurrentStep->label }} - Processus terminé
+                            </span>
+                        @elseif($candidature->status === 'rejected')
+                            <span class="inline-flex items-center gap-1 text-red-600 font-medium">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                {{ $realCurrentStep->label }} - Candidature rejetée
+                            </span>
+                        @else
+                            <span class="text-gray-900">{{ $realCurrentStep->label }}</span>
+                        @endif
                     @else
                         <span class="text-gray-400">Non définie</span>
                     @endif
@@ -150,7 +169,11 @@
                     <h3 class="text-lg font-semibold text-gray-900">Désignation du jury</h3>
                     <p class="text-xs text-gray-500 mt-1">
                         @if($canAssignJury)
-                            Assignez un jury constitué pour évaluer cette candidature
+                            @if($candidature->status === 'validated')
+                                <span class="text-green-600 font-medium">✅ Candidature validée - Vous pouvez modifier le jury si nécessaire</span>
+                            @else
+                                Assignez un jury constitué pour évaluer cette candidature
+                            @endif
                         @else
                             <span class="text-amber-600 font-medium">⚠️ Vous devez d'abord valider la candidature (Étape 1) avant d'assigner un jury</span>
                         @endif

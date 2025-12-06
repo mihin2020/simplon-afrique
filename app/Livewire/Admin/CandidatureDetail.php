@@ -130,8 +130,8 @@ class CandidatureDetail extends Component
     public function updatedSelectedJuryId(): void
     {
         if ($this->selectedJuryId) {
-            // Vérifier que la candidature est validée (step 1 validée)
-            if ($this->candidature->status !== 'in_review' || ! $this->candidature->current_step_id) {
+            // Vérifier que la candidature est en examen ou validée (step 1 validée)
+            if (! in_array($this->candidature->status, ['in_review', 'validated']) || ! $this->candidature->current_step_id) {
                 session()->flash('error', 'Vous devez d\'abord valider la candidature (étape 1) avant d\'assigner un jury.');
                 $this->selectedJuryId = '';
                 $this->loadCandidature();
@@ -220,9 +220,16 @@ class CandidatureDetail extends Component
         ];
 
         $isSuperAdmin = $this->isSuperAdmin();
-        $canAssignJury = $this->candidature &&
-                        $this->candidature->status === 'in_review' &&
-                        $this->candidature->current_step_id !== null;
+
+        // Permettre l'assignation de jury si :
+        // 1. La candidature est validée (toujours permettre la modification)
+        // 2. OU la candidature est en examen ET a un current_step_id
+        // 3. OU la candidature a déjà un jury assigné (pour permettre la modification)
+        $canAssignJury = $this->candidature && (
+            $this->candidature->status === 'validated' ||
+            ($this->candidature->status === 'in_review' && $this->candidature->current_step_id !== null) ||
+            $this->candidature->juries->isNotEmpty()
+        );
 
         return view('livewire.admin.candidature-detail', [
             'availableJuries' => $availableJuries,

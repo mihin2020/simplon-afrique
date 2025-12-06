@@ -157,4 +157,87 @@ class Candidature extends Model
             ->where('labellisation_step_id', $stepId)
             ->get();
     }
+
+    /**
+     * Get the real current step based on candidature steps progress.
+     * Returns the step that is currently in progress, or the last completed step if all are done.
+     */
+    public function getRealCurrentStep(): ?LabellisationStep
+    {
+        // Si la candidature est validée, retourner l'étape "Certification" (étape finale)
+        if ($this->status === 'validated') {
+            return LabellisationStep::where('name', 'certification')->first();
+        }
+
+        // Si la candidature est rejetée, retourner aussi l'étape "Certification"
+        if ($this->status === 'rejected') {
+            return LabellisationStep::where('name', 'certification')->first();
+        }
+
+        // Si la candidature n'est pas encore en examen, retourner l'étape "Candidature"
+        if ($this->status === 'draft' || $this->status === 'submitted') {
+            return LabellisationStep::where('name', 'candidature')->first();
+        }
+
+        // Pour les candidatures en examen (in_review), déterminer l'étape réelle
+        // Charger les étapes de la candidature avec leur définition
+        $candidatureSteps = $this->steps()
+            ->with('labellisationStep')
+            ->get()
+            ->sortBy(fn ($cs) => $cs->labellisationStep?->display_order ?? 999);
+
+        // Chercher l'étape en cours (in_progress)
+        $inProgressStep = $candidatureSteps->firstWhere('status', 'in_progress');
+        if ($inProgressStep) {
+            return $inProgressStep->labellisationStep;
+        }
+
+        // Si aucune étape n'est en cours, chercher la dernière étape complétée
+        $completedSteps = $candidatureSteps->where('status', 'completed');
+        if ($completedSteps->isNotEmpty()) {
+            $lastCompleted = $completedSteps->sortByDesc(fn ($cs) => $cs->labellisationStep?->display_order ?? 0)->first();
+
+            // Retourner l'étape suivante (celle qui devrait être en cours)
+            $nextStep = LabellisationStep::where('display_order', '>', $lastCompleted->labellisationStep->display_order)
+                ->orderBy('display_order')
+                ->first();
+
+            return $nextStep ?? $lastCompleted->labellisationStep;
+        }
+
+        // Fallback: utiliser current_step_id ou la première étape
+        return $this->currentStep ?? LabellisationStep::orderBy('display_order')->first();
+    }
+
+    /**
+     * Get the display label for the current step with progress indicator.
+     */
+    public function getCurrentStepLabel(): string
+    {
+        $step = $this->getRealCurrentStep();
+
+        if (! $step) {
+            return 'Non défini';
+        }
+
+        return $step->label;
+    }
+
+    /**
+     * Get the step number (display_order) for progress display.
+     */
+    public function getCurrentStepNumber(): int
+    {
+        $step = $this->getRealCurrentStep();
+
+        return $step?->display_order ?? 1;
+    }
+
+    /**
+     * Get total number of steps.
+     */
+    public function getTotalSteps(): int
+    {
+        return LabellisationStep::count();
+    }
 }

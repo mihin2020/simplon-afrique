@@ -96,18 +96,29 @@
                 @forelse($users as $user)
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap">
-                            @php
-                                $nameParts = explode(' ', $user->name, 2);
-                                $firstName = $nameParts[0] ?? '';
-                                $lastName = $nameParts[1] ?? '';
-                            @endphp
                             <div class="text-sm font-medium text-gray-900">
-                                {{ $firstName }}
+                                @if(empty($user->first_name) && !empty($user->name))
+                                    @php
+                                        $nameParts = explode(' ', trim($user->name), 2);
+                                        $displayFirstName = $nameParts[0] ?? '-';
+                                    @endphp
+                                    {{ $displayFirstName }}
+                                @else
+                                    {{ $user->first_name ?? '-' }}
+                                @endif
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">
-                                {{ $lastName ?: '-' }}
+                                @if(empty($user->first_name) && !empty($user->name))
+                                    @php
+                                        $nameParts = explode(' ', trim($user->name), 2);
+                                        $displayLastName = isset($nameParts[1]) ? $nameParts[1] : '-';
+                                    @endphp
+                                    {{ $displayLastName }}
+                                @else
+                                    {{ $user->name ?? '-' }}
+                                @endif
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">

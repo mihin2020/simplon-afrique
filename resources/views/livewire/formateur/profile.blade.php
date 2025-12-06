@@ -106,19 +106,51 @@
                         <label for="phoneCountryCode" class="block text-sm font-medium text-gray-700 mb-1">
                             Code pays
                         </label>
-                        <select
-                            id="phoneCountryCode"
-                            wire:model="phoneCountryCode"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                            size="1"
-                        >
-                            <option value="">Sélectionner un code</option>
-                            @foreach($phoneCountryCodes as $phoneCode)
-                                <option value="{{ $phoneCode['code'] }}">
-                                    {{ $phoneCode['flag'] }} {{ $phoneCode['code'] }} - {{ $phoneCode['country'] }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div x-data="{ 
+                            open: false, 
+                            selected: @entangle('phoneCountryCode'),
+                            getDisplayText() {
+                                if (!this.selected) return 'Sélectionner un code';
+                                const item = @js($phoneCountryCodes).find(c => c.code === this.selected);
+                                return item ? item.flag + ' ' + item.code + ' - ' + item.country : 'Sélectionner un code';
+                            }
+                        }" class="relative">
+                            <button
+                                type="button"
+                                @click="open = !open"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-left flex items-center justify-between"
+                            >
+                                <span x-text="getDisplayText()"></span>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div
+                                x-show="open"
+                                @click.away="open = false"
+                                x-transition
+                                class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                            >
+                                <button
+                                    type="button"
+                                    @click="selected = ''; $wire.set('phoneCountryCode', ''); open = false"
+                                    class="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                >
+                                    Sélectionner un code
+                                </button>
+                                @foreach($phoneCountryCodes as $phoneCode)
+                                    <button
+                                        type="button"
+                                        @click="selected = '{{ $phoneCode['code'] }}'; $wire.set('phoneCountryCode', '{{ $phoneCode['code'] }}'); open = false"
+                                        :class="selected === '{{ $phoneCode['code'] }}' ? 'bg-red-50' : ''"
+                                        class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                                    >
+                                        <span class="text-xl">{{ $phoneCode['flag'] }}</span>
+                                        <span>{{ $phoneCode['code'] }} - {{ $phoneCode['country'] }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
                         @error('phoneCountryCode') <span class="text-sm text-red-600 mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
@@ -141,19 +173,51 @@
                         <label for="country" class="block text-sm font-medium text-gray-700 mb-1">
                             Pays
                         </label>
-                        <select
-                            id="country"
-                            wire:model="country"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                            size="1"
-                        >
-                            <option value="">Sélectionner un pays</option>
-                            @foreach($countries as $countryItem)
-                                <option value="{{ $countryItem['name'] }}">
-                                    {{ $countryItem['flag'] }} {{ $countryItem['name'] }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div x-data="{ 
+                            open: false, 
+                            selected: @entangle('country'),
+                            getDisplayText() {
+                                if (!this.selected) return 'Sélectionner un pays';
+                                const item = @js($countries).find(c => c.name === this.selected);
+                                return item ? item.flag + ' ' + item.name : 'Sélectionner un pays';
+                            }
+                        }" class="relative">
+                            <button
+                                type="button"
+                                @click="open = !open"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-left flex items-center justify-between"
+                            >
+                                <span x-text="getDisplayText()"></span>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div
+                                x-show="open"
+                                @click.away="open = false"
+                                x-transition
+                                class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                            >
+                                <button
+                                    type="button"
+                                    @click="selected = ''; $wire.set('country', ''); open = false"
+                                    class="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                >
+                                    Sélectionner un pays
+                                </button>
+                                @foreach($countries as $countryItem)
+                                    <button
+                                        type="button"
+                                        @click="selected = '{{ $countryItem['name'] }}'; $wire.set('country', '{{ $countryItem['name'] }}'); open = false"
+                                        :class="selected === '{{ $countryItem['name'] }}' ? 'bg-red-50' : ''"
+                                        class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                                    >
+                                        <span class="text-xl">{{ $countryItem['flag'] }}</span>
+                                        <span>{{ $countryItem['name'] }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
                         @error('country') <span class="text-sm text-red-600 mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
@@ -217,7 +281,7 @@
 
             <!-- Section Certifications -->
             <div class="border-b border-gray-200 pb-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Certifications</h3>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Compétences et Certifications</h3>
                 
                 <!-- Certifications sélectionnées -->
                 @if(count($selectedCertificationsList) > 0)
@@ -246,7 +310,7 @@
                             <input
                                 type="text"
                                 wire:model.live.debounce.300ms="certificationSearch"
-                                placeholder="Rechercher ou ajouter une certification..."
+                                placeholder="Ex: JavaScript, React, Node.js, Python, Laravel, AWS..."
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                             >
                             @if($certificationSearch)

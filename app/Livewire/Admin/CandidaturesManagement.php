@@ -53,7 +53,7 @@ class CandidaturesManagement extends Component
 
     public function render()
     {
-        $query = Candidature::with(['user', 'badge', 'currentStep'])
+        $query = Candidature::with(['user', 'badge', 'currentStep', 'steps.labellisationStep'])
             ->latest();
 
         // Filtre par recherche (nom ou email du formateur)

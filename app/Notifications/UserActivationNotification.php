@@ -2,15 +2,12 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\URL;
 
 class UserActivationNotification extends Notification
 {
-    use Queueable;
-
     /**
      * Create a new notification instance.
      */
@@ -46,14 +43,24 @@ class UserActivationNotification extends Notification
             absolute: true
         );
 
+        // URL du logo Simplon (absolue pour les emails)
+        // Construire l'URL absolue en utilisant l'URL de base de l'application
+        // Si URL::forceRootUrl() a été appelé, URL::to() l'utilisera automatiquement
+        $baseUrl = \Illuminate\Support\Facades\URL::to('/');
+        // S'assurer que c'est une URL absolue
+        if (! str_starts_with($baseUrl, 'http')) {
+            $baseUrl = config('app.url');
+        }
+        $logoUrl = rtrim($baseUrl, '/').'/images/simplon-logo.jpg';
+
         return (new MailMessage)
             ->subject('Activation de votre compte - Simplon Africa')
-            ->greeting('Bonjour '.$notifiable->name.',')
-            ->line('Votre compte '.$roleLabel.' a été créé sur la plateforme Simplon Africa.')
-            ->line('Pour activer votre compte et créer votre mot de passe, cliquez sur le bouton ci-dessous :')
-            ->action('Créer mon mot de passe', $activationUrl)
-            ->line('Ce lien est valide pendant 7 jours.')
-            ->line('Si vous n\'avez pas demandé ce compte, vous pouvez ignorer cet email.');
+            ->view('emails.user-activation', [
+                'user' => $notifiable,
+                'roleLabel' => $roleLabel,
+                'activationUrl' => $activationUrl,
+                'logoUrl' => $logoUrl,
+            ]);
     }
 
     /**

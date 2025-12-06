@@ -4,7 +4,6 @@ namespace App\Livewire\Admin;
 
 use App\Models\Role;
 use App\Models\User;
-use App\Notifications\UserActivationNotification;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -75,10 +74,15 @@ class UserManagement extends Component
                 return;
             }
 
-            // Séparer le nom complet en prénom et nom
-            $nameParts = explode(' ', $user->name, 2);
-            $this->firstName = $nameParts[0] ?? '';
-            $this->lastName = $nameParts[1] ?? '';
+            // Si first_name est vide mais name est rempli, séparer le nom complet
+            if (empty($user->first_name) && ! empty($user->name)) {
+                $nameParts = explode(' ', trim($user->name), 2);
+                $this->firstName = $nameParts[0] ?? '';
+                $this->lastName = $nameParts[1] ?? $nameParts[0] ?? '';
+            } else {
+                $this->firstName = $user->first_name ?? '';
+                $this->lastName = $user->name ?? '';
+            }
             $this->email = $user->email;
             $this->role = $userRole;
         } else {
@@ -110,12 +114,11 @@ class UserManagement extends Component
             'role' => ['required', 'string', 'in:formateur,admin'],
         ]);
 
-        $fullName = trim($this->firstName.' '.$this->lastName);
-
         if ($this->editingUserId) {
             $user = User::findOrFail($this->editingUserId);
             $user->update([
-                'name' => $fullName,
+                'first_name' => trim($this->firstName),
+                'name' => trim($this->lastName),
                 'email' => $this->email,
             ]);
 
@@ -127,7 +130,8 @@ class UserManagement extends Component
         } else {
             // Créer l'utilisateur avec un mot de passe temporaire (qui sera changé lors de l'activation)
             $user = User::create([
-                'name' => $fullName,
+                'first_name' => trim($this->firstName),
+                'name' => trim($this->lastName),
                 'email' => $this->email,
                 'password' => Hash::make(\Illuminate\Support\Str::random(32)), // Mot de passe temporaire
             ]);
@@ -137,12 +141,13 @@ class UserManagement extends Component
                 $user->roles()->attach($role->id);
             }
 
-            // Envoyer l'email d'activation
+            // Envoyer l'email d'activation de manière synchrone (sans queue)
             // Forcer l'URL de base à utiliser l'URL de la requête actuelle
             $currentUrl = request()->getSchemeAndHttpHost();
             \Illuminate\Support\Facades\URL::forceRootUrl($currentUrl);
 
-            $user->notify(new UserActivationNotification($this->role));
+            // Utiliser notify() directement - la notification n'implémente pas ShouldQueue donc elle est synchrone
+            $user->notify(new \App\Notifications\UserActivationNotification($this->role));
 
             // Restaurer l'URL originale
             \Illuminate\Support\Facades\URL::forceRootUrl(config('app.url'));
