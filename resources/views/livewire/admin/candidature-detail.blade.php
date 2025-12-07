@@ -100,15 +100,17 @@
                 @endif
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                @if($candidature->status === 'validated' && $candidature->badge)
-                    <div>
-                        <div class="text-sm font-medium text-gray-700 mb-1">Badge attribué</div>
+                <div>
+                    <div class="text-sm font-medium text-gray-700 mb-1">Badge visé</div>
+                    @if($candidature->badge)
                         <div class="flex items-center gap-2">
                             <span class="text-2xl">{{ $candidature->badge->getEmoji() }}</span>
                             <span class="text-lg text-gray-900">{{ str_replace('Label ', '', $candidature->badge->label) }}</span>
                         </div>
-                    </div>
-                @endif
+                    @else
+                        <span class="text-gray-400">Non défini</span>
+                    @endif
+                </div>
                 <div>
                     <div class="text-sm font-medium text-gray-700 mb-1">Statut</div>
                     @php
@@ -128,27 +130,8 @@
                 </div>
                 <div>
                     <div class="text-sm font-medium text-gray-700 mb-1">Étape actuelle</div>
-                    @php
-                        $realCurrentStep = $candidature->getRealCurrentStep();
-                    @endphp
-                    @if($realCurrentStep)
-                        @if($candidature->status === 'validated')
-                            <span class="inline-flex items-center gap-1 text-green-600 font-medium">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                </svg>
-                                {{ $realCurrentStep->label }} - Processus terminé
-                            </span>
-                        @elseif($candidature->status === 'rejected')
-                            <span class="inline-flex items-center gap-1 text-red-600 font-medium">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                                {{ $realCurrentStep->label }} - Candidature rejetée
-                            </span>
-                        @else
-                            <span class="text-gray-900">{{ $realCurrentStep->label }}</span>
-                        @endif
+                    @if($candidature->currentStep)
+                        <span class="text-gray-900">{{ $candidature->currentStep->label }}</span>
                     @else
                         <span class="text-gray-400">Non définie</span>
                     @endif
@@ -167,11 +150,7 @@
                     <h3 class="text-lg font-semibold text-gray-900">Désignation du jury</h3>
                     <p class="text-xs text-gray-500 mt-1">
                         @if($canAssignJury)
-                            @if($candidature->status === 'validated')
-                                <span class="text-green-600 font-medium">✅ Candidature validée - Vous pouvez modifier le jury si nécessaire</span>
-                            @else
-                                Assignez un jury constitué pour évaluer cette candidature
-                            @endif
+                            Assignez un jury constitué pour évaluer cette candidature
                         @else
                             <span class="text-amber-600 font-medium">⚠️ Vous devez d'abord valider la candidature (Étape 1) avant d'assigner un jury</span>
                         @endif
@@ -451,37 +430,6 @@
                 </div>
             @endif
         </div>
-
-        <!-- Note globale de l'administrateur -->
-        @if($candidature->status === 'in_review' || $candidature->status === 'submitted')
-            @livewire('admin.set-global-score', ['candidature' => $candidature], key('set-global-score-' . $candidature->id))
-        @endif
-    </div>
-</div>
-@else
-<div class="text-center py-12">
-    <p class="text-gray-500">Candidature non trouvée.</p>
-</div>
-@endif
-
-                                        {{ $attachment['name'] ?? 'Document ' . ($index + 1) }}
-                                    </p>
-                                    <p class="text-xs text-gray-500">Cliquez pour télécharger</p>
-                                </div>
-                                <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                                </svg>
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-        </div>
-
-        <!-- Note globale de l'administrateur -->
-        @if($candidature->status === 'in_review' || $candidature->status === 'submitted')
-            @livewire('admin.set-global-score', ['candidature' => $candidature], key('set-global-score-' . $candidature->id))
-        @endif
     </div>
 </div>
 @else

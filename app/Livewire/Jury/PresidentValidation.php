@@ -85,12 +85,6 @@ class PresidentValidation extends Component
             'presidentComment.min' => 'Le commentaire doit contenir au moins 10 caractères.',
         ]);
 
-        if (! $this->proposedBadge) {
-            session()->flash('error', 'La note finale est insuffisante pour attribuer un badge (minimum 10/20).');
-
-            return;
-        }
-
         DB::transaction(function () {
             // Mettre à jour toutes les évaluations de cette candidature avec la décision du président
             Evaluation::where('candidature_id', $this->candidature->id)
@@ -103,12 +97,20 @@ class PresidentValidation extends Component
             // Récupérer l'étape "Certification"
             $certificationStep = LabellisationStep::where('name', 'certification')->first();
 
-            // Mettre à jour la candidature
-            $this->candidature->update([
-                'badge_id' => $this->proposedBadge->id,
-                'status' => 'validated',
+            // Préparer les données de mise à jour
+            $updateData = [
+                'status' => 'validated', // ✅ TOUJOURS 'validated' si le président approuve
                 'current_step_id' => $certificationStep?->id,
-            ]);
+            ];
+
+            // Attribuer le badge seulement s'il existe
+            if ($this->proposedBadge) {
+                $updateData['badge_id'] = $this->proposedBadge->id;
+                $updateData['badge_awarded_at'] = now();
+            }
+
+            // Mettre à jour la candidature
+            $this->candidature->update($updateData);
 
             // Créer ou mettre à jour le CandidatureStep pour l'étape Certification
             if ($certificationStep) {
@@ -125,7 +127,13 @@ class PresidentValidation extends Component
             }
         });
 
-        session()->flash('success', 'La candidature a été validée avec succès. Le badge '.$this->proposedBadge->label.' a été attribué.');
+        // Message de succès adapté selon la présence d'un badge
+        if ($this->proposedBadge) {
+            session()->flash('success', 'La candidature a été validée avec succès. Le badge '.$this->proposedBadge->label.' a été attribué.');
+        } else {
+            session()->flash('success', 'La candidature a été validée avec succès. Cependant, le score final ('.number_format($this->finalScore, 2).'/20) ne permet pas l\'attribution d\'un badge.');
+        }
+
         $this->redirect(route('admin.candidature.show', $this->candidature->id));
     }
 
