@@ -106,12 +106,20 @@
         <!-- Categories -->
         <div class="space-y-4">
             @forelse ($grid->categories as $category)
+                @php
+                    $stepLabel = $category->labellisationStep ? $category->labellisationStep->label : 'Non assignée';
+                @endphp
                 <div class="bg-white rounded-lg shadow overflow-hidden">
                     <!-- Category Header -->
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
-                                <h3 class="text-lg font-semibold text-gray-900">{{ $category->name }}</h3>
+                                <div class="flex items-center gap-3">
+                                    <h3 class="text-lg font-semibold text-gray-900">{{ $category->name }}</h3>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $category->labellisationStep ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800' }}">
+                                        {{ $stepLabel }}
+                                    </span>
+                                </div>
                                 @if ($category->description)
                                     <p class="mt-1 text-sm text-gray-600">{{ $category->description }}</p>
                                 @endif
@@ -351,6 +359,28 @@
                                         @error('categoryDescription')
                                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                         @enderror
+                                    </div>
+
+                                    <div>
+                                        <label for="categoryStepId" class="block text-sm font-medium text-gray-700 mb-1">
+                                            Étape de labellisation <span class="text-red-600">*</span>
+                                        </label>
+                                        <select
+                                            id="categoryStepId"
+                                            wire:model="categoryStepId"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                        >
+                                            <option value="">-- Sélectionner une étape --</option>
+                                            @foreach($labellisationSteps as $step)
+                                                <option value="{{ $step->id }}">{{ $step->label }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('categoryStepId')
+                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                        @enderror
+                                        <p class="mt-1 text-xs text-gray-500">
+                                            Cette catégorie sera utilisée pour l'évaluation à cette étape de labellisation.
+                                        </p>
                                     </div>
                                 </div>
                             </div>

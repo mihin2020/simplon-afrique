@@ -78,7 +78,9 @@
                 @forelse ($grids as $grid)
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">{{ $grid->name }}</div>
+                            <a href="{{ route('admin.evaluation-grids.detail', $grid->id) }}" class="text-sm font-medium text-red-600 hover:text-red-900 hover:underline">
+                                {{ $grid->name }}
+                            </a>
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm text-gray-500 line-clamp-2">
@@ -110,13 +112,13 @@
                             <div class="flex items-center justify-end gap-2">
                                 <a
                                     href="{{ route('admin.evaluation-grids.detail', $grid->id) }}"
-                                    class="text-red-600 hover:text-red-900"
-                                    title="Voir le détail"
+                                    class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                                    title="Gérer la grille (catégories et critères)"
                                 >
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                     </svg>
+                                    Gérer
                                 </a>
                                 <button
                                     wire:click="toggleActive('{{ $grid->id }}')"

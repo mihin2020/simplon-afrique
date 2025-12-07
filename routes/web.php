@@ -78,6 +78,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/certifications', [CertificationController::class, 'index'])->name('certifications');
         Route::get('/juries', [JuryManagementController::class, 'index'])->name('juries');
 
+        // Route pour créer un jury (doit être avant jury/{jury} pour éviter les conflits)
+        Route::middleware('role:super_admin')->get('/jury/create', [JuryManagementController::class, 'create'])->name('jury.create');
+
         Route::prefix('candidature/{candidature}')->name('candidature.')->group(function () {
             Route::get('/', [CandidatureController::class, 'show'])->name('show');
             Route::post('/validate', [CandidatureController::class, 'validate'])->name('validate');
@@ -100,8 +103,6 @@ Route::middleware('auth')->group(function () {
 
     // Routes Super Admin uniquement
     Route::middleware('role:super_admin')->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/jury/create', [JuryManagementController::class, 'create'])->name('jury.create');
-
         Route::post('/jury/{jury}/remove-member/{member}', [JuryController::class, 'removeMember'])
             ->name('jury.remove-member');
         Route::post('/jury/{jury}/update-evaluation-grid', [JuryController::class, 'updateEvaluationGrid'])

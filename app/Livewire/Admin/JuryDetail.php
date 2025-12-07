@@ -2,9 +2,14 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\Badge;
+use App\Models\Evaluation;
 use App\Models\EvaluationGrid;
 use App\Models\Jury;
 use App\Models\JuryMember;
+use App\Models\User;
+use App\Services\EvaluationCalculationService;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class JuryDetail extends Component
@@ -33,7 +38,11 @@ class JuryDetail extends Component
 
     public function loadJury(): void
     {
-        $user = auth()->user()->load('roles');
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return;
+        }
+        $user->load('roles');
         $isSuperAdmin = $user->roles->contains('name', 'super_admin');
 
         $query = Jury::with([
@@ -68,7 +77,11 @@ class JuryDetail extends Component
             return;
         }
 
-        $user = auth()->user()->load('roles');
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return;
+        }
+        $user->load('roles');
         $isSuperAdmin = $user->roles->contains('name', 'super_admin');
 
         if (! $isSuperAdmin) {
@@ -108,7 +121,11 @@ class JuryDetail extends Component
 
     public function removeMember(string $memberId): void
     {
-        $user = auth()->user()->load('roles');
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return;
+        }
+        $user->load('roles');
         $isSuperAdmin = $user->roles->contains('name', 'super_admin');
 
         if (! $isSuperAdmin) {
@@ -156,10 +173,18 @@ class JuryDetail extends Component
                 'roleOptions' => [],
                 'availableGrids' => collect(),
                 'isSuperAdmin' => false,
+                'isPresident' => false,
+                'availableCandidatures' => collect(),
+                'evaluationsData' => [],
+                'presidentData' => [],
             ]);
         }
 
-        $user = auth()->user()->load('roles');
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return;
+        }
+        $user->load('roles');
         $isSuperAdmin = $user->roles->contains('name', 'super_admin');
 
         $roleOptions = [
@@ -173,11 +198,190 @@ class JuryDetail extends Component
             ? EvaluationGrid::where('is_active', true)->orderBy('name')->get()
             : collect();
 
+        // Récupérer le membre du jury pour les évaluations
+        $juryMember = $this->jury->members()->where('user_id', $user->id)->first();
+        if (! $juryMember && $isSuperAdmin) {
+            $juryMember = $this->jury->members()->first();
+        }
+
+        // Charger les candidatures disponibles
+        $candidaturesMany = $this->jury->candidatures()
+            ->whereIn('status', ['in_review'])
+            ->with('user', 'currentStep')
+            ->get();
+
+        $candidatureSingle = collect();
+        if ($this->jury->candidature_id) {
+            $cand = \App\Models\Candidature::where('id', $this->jury->candidature_id)
+                ->whereIn('status', ['in_review'])
+                ->with('user', 'currentStep')
+                ->first();
+            if ($cand) {
+                $candidatureSingle = collect([$cand]);
+            }
+        }
+
+        $availableCandidatures = $candidaturesMany->merge($candidatureSingle)->unique('id')->values();
+
+        // Charger les données d'évaluation pour chaque candidature
+        $evaluationsData = [];
+        if ($juryMember) {
+            foreach ($availableCandidatures as $candidature) {
+                // Récupérer les évaluations soumises pour cette candidature et ce membre du jury
+                $evaluations = Evaluation::where('candidature_id', $candidature->id)
+                    ->where('jury_id', $this->jury->id)
+                    ->where('jury_member_id', $juryMember->id)
+                    ->where('status', 'submitted')
+                    ->with('scores')
+                    ->get();
+
+                if ($evaluations->isNotEmpty() && $evaluations->first()->scores->isNotEmpty()) {
+                    // Calculer la somme totale des notes pondérées
+                    $totalWeightedScore = 0;
+                    $totalRawScores = 0;
+                    $criteriaCount = 0;
+
+                    foreach ($evaluations as $evaluation) {
+                        foreach ($evaluation->scores as $score) {
+                            $totalWeightedScore += $score->weighted_score ?? 0;
+                            $totalRawScores += $score->raw_score ?? 0;
+                            $criteriaCount++;
+                        }
+                    }
+
+                    // Calculer la moyenne des notes brutes
+                    $averageScore = $criteriaCount > 0 ? ($totalRawScores / $criteriaCount) : 0;
+
+                    $evaluationsData[$candidature->id] = [
+                        'evaluated' => true,
+                        'total_weighted_score' => $totalWeightedScore,
+                        'average_score' => $averageScore,
+                        'criteria_count' => $criteriaCount,
+                    ];
+                } else {
+                    $evaluationsData[$candidature->id] = [
+                        'evaluated' => false,
+                    ];
+                }
+            }
+        }
+
+        // Vérifier si l'utilisateur est président du jury
+        $isPresident = false;
+        $currentJuryMember = $this->jury->members()->where('user_id', $user->id)->first();
+        if ($currentJuryMember && $currentJuryMember->is_president) {
+            $isPresident = true;
+        }
+
+        // Données pour le président : récapitulatif de toutes les évaluations par tous les membres
+        $presidentData = [];
+        $calculationService = new EvaluationCalculationService;
+
+        if ($isPresident || $isSuperAdmin) {
+            foreach ($availableCandidatures as $candidature) {
+                // Récupérer toutes les évaluations de tous les membres pour cette candidature
+                $allEvaluations = Evaluation::where('candidature_id', $candidature->id)
+                    ->where('jury_id', $this->jury->id)
+                    ->where('status', 'submitted')
+                    ->with(['scores', 'juryMember.user'])
+                    ->get();
+
+                $membersEvaluations = [];
+                $allMembersEvaluated = true;
+                $totalMembersWeightedScore = 0;
+                $totalMembersRawScores = 0;
+                $totalMembersCriteriaCount = 0;
+                $membersCount = 0;
+
+                // Vérifier si tous les membres ont évalué
+                $juryMembersCount = $this->jury->members()->count();
+
+                foreach ($allEvaluations as $evaluation) {
+                    if ($evaluation->scores->isNotEmpty()) {
+                        $memberWeightedScore = 0;
+                        $memberRawScores = 0;
+                        $memberCriteriaCount = 0;
+
+                        foreach ($evaluation->scores as $score) {
+                            $memberWeightedScore += $score->weighted_score ?? 0;
+                            $memberRawScores += $score->raw_score ?? 0;
+                            $memberCriteriaCount++;
+                        }
+
+                        $memberAverage = $memberCriteriaCount > 0 ? ($memberRawScores / $memberCriteriaCount) : 0;
+
+                        // Compter les catégories distinctes
+                        $categoryCount = $evaluation->scores()
+                            ->join('evaluation_criteria', 'evaluation_scores.evaluation_criterion_id', '=', 'evaluation_criteria.id')
+                            ->join('evaluation_categories', 'evaluation_criteria.evaluation_category_id', '=', 'evaluation_categories.id')
+                            ->distinct('evaluation_categories.id')
+                            ->count('evaluation_categories.id');
+
+                        $membersEvaluations[] = [
+                            'member_name' => $evaluation->juryMember->user->name ?? 'Membre inconnu',
+                            'member_id' => $evaluation->jury_member_id,
+                            'total_weighted_score' => $memberWeightedScore,
+                            'average_score' => $memberAverage,
+                            'criteria_count' => $memberCriteriaCount,
+                            'category_count' => $categoryCount,
+                        ];
+
+                        $totalMembersWeightedScore += $memberWeightedScore;
+                        $totalMembersRawScores += $memberRawScores;
+                        $totalMembersCriteriaCount += $memberCriteriaCount;
+                        $membersCount++;
+                    }
+                }
+
+                // Vérifier si tous les membres ont évalué
+                $allMembersEvaluated = $membersCount >= $juryMembersCount;
+
+                // Calculer la moyenne globale de tous les membres
+                $globalAverage = $membersCount > 0 ? ($totalMembersRawScores / $totalMembersCriteriaCount) : 0;
+                $globalWeightedScore = $membersCount > 0 ? ($totalMembersWeightedScore / $membersCount) : 0;
+
+                // Récupérer le badge demandé par le formateur
+                $requestedBadge = $candidature->badge;
+
+                // Déterminer le badge attribué selon la moyenne globale
+                $awardedBadge = null;
+                if ($globalAverage > 0) {
+                    // Trouver le badge approprié selon la moyenne
+                    $juniorBadge = Badge::where('name', 'junior')->first();
+                    $minThreshold = $juniorBadge?->min_score ?? 10.0;
+
+                    if ($globalAverage >= $minThreshold) {
+                        $awardedBadge = Badge::where('min_score', '<=', $globalAverage)
+                            ->where('max_score', '>=', $globalAverage)
+                            ->orderBy('min_score', 'desc')
+                            ->first();
+                    }
+                }
+
+                $presidentData[$candidature->id] = [
+                    'members_evaluations' => $membersEvaluations,
+                    'all_members_evaluated' => $allMembersEvaluated,
+                    'members_count' => $membersCount,
+                    'total_members' => $juryMembersCount,
+                    'global_weighted_score' => $globalWeightedScore,
+                    'global_average' => $globalAverage,
+                    'requested_badge' => $requestedBadge,
+                    'awarded_badge' => $awardedBadge,
+                    'president_comment' => $allEvaluations->first()?->president_comment,
+                    'president_decision' => $allEvaluations->first()?->president_decision,
+                ];
+            }
+        }
+
         return view('livewire.admin.jury-detail', [
             'jury' => $this->jury,
             'roleOptions' => $roleOptions,
             'availableGrids' => $availableGrids,
             'isSuperAdmin' => $isSuperAdmin,
+            'isPresident' => $isPresident,
+            'availableCandidatures' => $availableCandidatures,
+            'evaluationsData' => $evaluationsData,
+            'presidentData' => $presidentData,
         ]);
     }
 }

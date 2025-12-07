@@ -5,7 +5,11 @@ namespace App\Livewire\Formateur;
 use App\Data\CountriesData;
 use App\Models\CertificationTag;
 use App\Models\FormateurProfile;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -13,9 +17,19 @@ class Profile extends Component
 {
     use WithFileUploads;
 
+    public $name = '';
+
+    public $firstName = '';
+
+    public $email = '';
+
     public $photo;
 
     public $photoPreview;
+
+    public $cv;
+
+    public $cvPreview;
 
     public $phoneCountryCode = '+33';
 
@@ -35,20 +49,21 @@ class Profile extends Component
 
     public $availableCertifications = [];
 
-    protected $rules = [
-        'phoneCountryCode' => ['nullable', 'string', 'max:10'],
-        'phoneNumber' => ['nullable', 'string', 'max:30'],
-        'country' => ['nullable', 'string', 'max:255'],
-        'technicalProfile' => ['nullable', 'string', 'max:255'],
-        'yearsOfExperience' => ['nullable', 'string', 'max:20'],
-        'portfolioUrl' => ['nullable', 'url', 'max:255'],
-        'photo' => ['nullable', 'image', 'max:2048'],
-        'selectedCertifications' => ['array'],
-    ];
-
     public function mount(): void
     {
-        $user = auth()->user();
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            return;
+        }
+
+        // Charger les données de l'utilisateur
+        $user->refresh();
+
+        $this->name = $user->name ?? '';
+        $this->firstName = $user->first_name ?? '';
+        $this->email = $user->email ?? '';
+
         $profile = $user->formateurProfile;
 
         if ($profile) {
@@ -59,6 +74,7 @@ class Profile extends Component
             $this->yearsOfExperience = $profile->years_of_experience;
             $this->portfolioUrl = $profile->portfolio_url;
             $this->photoPreview = $profile->photo_path ? Storage::url($profile->photo_path) : null;
+            $this->cvPreview = $profile->cv_path ? basename($profile->cv_path) : null;
             $this->selectedCertifications = $profile->certifications->pluck('id')->toArray();
         } else {
             // Valeurs par défaut si pas de profil
@@ -73,6 +89,12 @@ class Profile extends Component
     {
         $this->validateOnly('photo');
         $this->photoPreview = $this->photo->temporaryUrl();
+    }
+
+    public function updatedCv(): void
+    {
+        $this->validateOnly('cv');
+        $this->cvPreview = $this->cv?->getClientOriginalName();
     }
 
     public function updatedCertificationSearch(): void
@@ -123,7 +145,17 @@ class Profile extends Component
     {
         $this->validate();
 
-        $user = auth()->user();
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $user->name = $this->name;
+        $user->first_name = $this->firstName;
+        $user->email = $this->email;
+        $user->save();
+
         $profile = $user->formateurProfile;
 
         $data = [
@@ -148,6 +180,16 @@ class Profile extends Component
             $this->photoPreview = Storage::url($path);
         }
 
+        if ($this->cv) {
+            if ($profile && $profile->cv_path) {
+                Storage::disk('public')->delete($profile->cv_path);
+            }
+
+            $cvPath = $this->cv->store('formateurs/cv', 'public');
+            $data['cv_path'] = $cvPath;
+            $this->cvPreview = $this->cv->getClientOriginalName();
+        }
+
         if ($profile) {
             $profile->update($data);
         } else {
@@ -159,7 +201,59 @@ class Profile extends Component
         $profile->certifications()->sync($this->selectedCertifications);
 
         $this->photo = null;
+        $this->cv = null;
         session()->flash('success', 'Profil mis à jour avec succès.');
+    }
+
+    public function removeCv(): void
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $profile = $user->formateurProfile;
+
+        if (! $profile || ! $profile->cv_path) {
+            return;
+        }
+
+        Storage::disk('public')->delete($profile->cv_path);
+
+        $profile->update([
+            'cv_path' => null,
+        ]);
+
+        $this->cv = null;
+        $this->cvPreview = null;
+
+        session()->flash('message', 'CV supprimé avec succès.');
+    }
+
+    protected function rules(): array
+    {
+        $userId = Auth::id();
+
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'firstName' => ['nullable', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($userId),
+            ],
+            'phoneCountryCode' => ['nullable', 'string', 'max:10'],
+            'phoneNumber' => ['nullable', 'string', 'max:30'],
+            'country' => ['nullable', 'string', 'max:255'],
+            'technicalProfile' => ['nullable', 'string', 'max:255'],
+            'yearsOfExperience' => ['nullable', 'string', 'max:20'],
+            'portfolioUrl' => ['nullable', 'url', 'max:255'],
+            'photo' => ['nullable', 'image', 'max:2048'],
+            'cv' => ['nullable', 'mimes:pdf', 'max:5120'],
+            'selectedCertifications' => ['array'],
+        ];
     }
 
     public function getExperienceOptions(): array
@@ -171,7 +265,7 @@ class Profile extends Component
         ];
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.formateur.profile', [
             'selectedCertificationsList' => CertificationTag::whereIn('id', $this->selectedCertifications)->get(),
