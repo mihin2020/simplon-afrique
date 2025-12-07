@@ -16,6 +16,51 @@
             </div>
         @endif
 
+        <!-- Alerte si la grille n'est pas valide (poids != 100%) -->
+        @if (!$isGridValid && count($incompleteCategories) > 0)
+            <div class="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-lg">
+                <div class="flex items-start gap-3">
+                    <svg class="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-semibold text-amber-800 mb-2">
+                            Grille incomplète - Catégorie(s) avec poids ≠ 100%
+                        </h4>
+                        <p class="text-sm text-amber-700 mb-3">
+                            Pour un calcul de moyenne correct, la somme des poids de chaque catégorie doit être exactement 100%.
+                        </p>
+                        <ul class="space-y-1">
+                            @foreach ($incompleteCategories as $cat)
+                                <li class="text-sm text-amber-800 flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+                                    <strong>{{ $cat['name'] }}</strong> : {{ number_format($cat['total_weight'], 2) }}%
+                                    @if ($cat['missing'] > 0)
+                                        <span class="text-amber-600">(manque {{ number_format($cat['missing'], 2) }}%)</span>
+                                    @else
+                                        <span class="text-amber-600">(excès de {{ number_format(abs($cat['missing']), 2) }}%)</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @elseif ($grid->categories->count() > 0 && $isGridValid)
+            <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-medium text-green-800">
+                            Grille valide - Toutes les catégories ont un total de poids de 100%
+                        </p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <!-- Grid Header -->
         <div class="mb-6 bg-white rounded-lg shadow p-6">
             <div class="flex items-start justify-between">

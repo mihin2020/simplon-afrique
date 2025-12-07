@@ -103,17 +103,15 @@
                     @endif
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <div class="text-sm font-medium text-gray-700 mb-1">Badge visé</div>
-                        @if($candidature->badge)
+                    @if($candidature->status === 'validated' && $candidature->badge)
+                        <div>
+                            <div class="text-sm font-medium text-gray-700 mb-1">Badge attribué</div>
                             <div class="flex items-center gap-2">
                                 <span class="text-2xl">{{ $candidature->badge->getEmoji() }}</span>
                                 <span class="text-lg text-gray-900">{{ str_replace('Label ', '', $candidature->badge->label) }}</span>
                             </div>
-                        @else
-                            <span class="text-gray-400">Non défini</span>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
                     <div>
                         <div class="text-sm font-medium text-gray-700 mb-1">Statut</div>
                         @php

@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Formateur;
 
-use App\Models\Badge;
 use App\Models\Candidature;
 use App\Models\CandidatureStep;
 use App\Models\LabellisationStep;
@@ -13,8 +12,6 @@ class CreateCandidature extends Component
 {
     use WithFileUploads;
 
-    public $badgeId;
-
     public $motivationLetter;
 
     public $motivationLetterPreview;
@@ -24,14 +21,11 @@ class CreateCandidature extends Component
     public $attachmentPreviews = [];
 
     protected $rules = [
-        'badgeId' => ['required', 'exists:badges,id'],
         'motivationLetter' => ['required', 'file', 'mimes:pdf', 'max:5120'],
         'additionalAttachments.*' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
     ];
 
     protected $messages = [
-        'badgeId.required' => 'Veuillez sélectionner un badge.',
-        'badgeId.exists' => 'Le badge sélectionné n\'existe pas.',
         'motivationLetter.required' => 'La lettre de motivation est obligatoire.',
         'motivationLetter.mimes' => 'La lettre de motivation doit être un fichier PDF.',
         'motivationLetter.max' => 'La lettre de motivation ne doit pas dépasser 5 Mo.',
@@ -136,10 +130,10 @@ class CreateCandidature extends Component
         // Récupérer le portfolio depuis le profil si disponible
         $portfolioUrl = $user->formateurProfile?->portfolio_url;
 
-        // Créer la candidature
+        // Créer la candidature (sans badge_id - sera attribué automatiquement selon la moyenne)
         $candidature = Candidature::create([
             'user_id' => $user->id,
-            'badge_id' => $this->badgeId,
+            'badge_id' => null,
             'current_step_id' => $firstStep->id,
             'status' => 'submitted',
             'cv_path' => $cvPath,
@@ -156,7 +150,7 @@ class CreateCandidature extends Component
         ]);
 
         // Réinitialiser le formulaire
-        $this->reset(['badgeId', 'motivationLetter', 'motivationLetterPreview', 'additionalAttachments', 'attachmentPreviews']);
+        $this->reset(['motivationLetter', 'motivationLetterPreview', 'additionalAttachments', 'attachmentPreviews']);
 
         session()->flash('success', 'Votre candidature a été déposée avec succès ! Elle est maintenant en cours d\'examen.');
 
@@ -173,20 +167,7 @@ class CreateCandidature extends Component
             ->whereIn('status', ['draft', 'submitted', 'in_review'])
             ->exists();
 
-        // Récupérer les badges déjà validés par l'utilisateur
-        $validatedBadgeIds = $user->candidatures()
-            ->where('status', 'validated')
-            ->whereNotNull('badge_id')
-            ->pluck('badge_id')
-            ->toArray();
-
-        // Filtrer les badges : exclure ceux déjà validés
-        $badges = Badge::orderBy('min_score')
-            ->whereNotIn('id', $validatedBadgeIds)
-            ->get();
-
         return view('livewire.formateur.create-candidature', [
-            'badges' => $badges,
             'hasActiveCandidature' => $hasActiveCandidature,
         ]);
     }

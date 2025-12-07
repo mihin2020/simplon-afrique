@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Events\EvaluationSubmitted;
 use App\Http\Controllers\Controller;
+use App\Mail\BadgeAwardedMail;
+use App\Models\Badge;
 use App\Models\Candidature;
 use App\Models\CandidatureStep;
 use App\Models\Evaluation;
@@ -11,12 +13,15 @@ use App\Models\EvaluationGrid;
 use App\Models\EvaluationScore;
 use App\Models\Jury;
 use App\Models\JuryMember;
+use App\Models\LabellisationSetting;
 use App\Models\LabellisationStep;
+use App\Services\AttestationService;
 use App\Services\EvaluationCalculationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 
 class JuryController extends Controller
@@ -74,6 +79,8 @@ class JuryController extends Controller
 
         // Récupérer les évaluations pour chaque candidature
         $evaluationsData = [];
+        $calculationService = new \App\Services\EvaluationCalculationService;
+
         if ($juryMember) {
             foreach ($availableCandidatures as $candidature) {
                 // Récupérer les évaluations soumises pour cette candidature et ce membre du jury
@@ -81,31 +88,39 @@ class JuryController extends Controller
                     ->where('jury_id', $jury->id)
                     ->where('jury_member_id', $juryMember->id)
                     ->where('status', 'submitted')
-                    ->with('scores')
+                    ->with(['scores.criterion.category'])
                     ->get();
 
                 if ($evaluations->isNotEmpty() && $evaluations->first()->scores->isNotEmpty()) {
-                    // Calculer la somme totale des notes pondérées
-                    $totalWeightedScore = 0;
-                    $totalRawScores = 0;
+                    // Calculer la moyenne finale en utilisant l'algorithme par catégorie
+                    $totalCategoryScores = 0;
+                    $categoryCount = 0;
                     $criteriaCount = 0;
 
                     foreach ($evaluations as $evaluation) {
-                        foreach ($evaluation->scores as $score) {
-                            $totalWeightedScore += $score->weighted_score ?? 0;
-                            $totalRawScores += $score->raw_score ?? 0;
-                            $criteriaCount++;
+                        // Regrouper les scores par catégorie
+                        $scoresByCategory = $evaluation->scores->groupBy(function ($score) {
+                            return $score->criterion?->category?->id;
+                        })->filter(fn ($group, $key) => $key !== null);
+
+                        foreach ($scoresByCategory as $categoryScores) {
+                            // Note de la catégorie = somme des notes pondérées (sur 20 si poids = 100%)
+                            $categoryScore = $categoryScores->sum('weighted_score');
+                            $totalCategoryScores += $categoryScore;
+                            $categoryCount++;
+                            $criteriaCount += $categoryScores->count();
                         }
                     }
 
-                    // Calculer la moyenne des notes brutes
-                    $averageScore = $criteriaCount > 0 ? ($totalRawScores / $criteriaCount) : 0;
+                    // Moyenne finale = moyenne des notes de catégories
+                    $averageScore = $categoryCount > 0 ? ($totalCategoryScores / $categoryCount) : 0;
 
                     $evaluationsData[$candidature->id] = [
                         'evaluated' => true,
-                        'total_weighted_score' => $totalWeightedScore,
-                        'average_score' => $averageScore,
+                        'total_weighted_score' => $totalCategoryScores,
+                        'average_score' => round($averageScore, 2),
                         'criteria_count' => $criteriaCount,
+                        'category_count' => $categoryCount,
                     ];
                 } else {
                     $evaluationsData[$candidature->id] = [
@@ -130,14 +145,12 @@ class JuryController extends Controller
                 $allEvaluations = Evaluation::where('candidature_id', $candidature->id)
                     ->where('jury_id', $jury->id)
                     ->where('status', 'submitted')
-                    ->with(['scores', 'juryMember.user'])
+                    ->with(['scores.criterion.category', 'juryMember.user'])
                     ->get();
 
                 $membersEvaluations = [];
                 $allMembersEvaluated = true;
-                $totalMembersWeightedScore = 0;
-                $totalMembersRawScores = 0;
-                $totalMembersCriteriaCount = 0;
+                $totalMembersAverages = 0;
                 $membersCount = 0;
 
                 // Vérifier si tous les membres ont évalué
@@ -145,29 +158,36 @@ class JuryController extends Controller
 
                 foreach ($allEvaluations as $evaluation) {
                     if ($evaluation->scores->isNotEmpty()) {
-                        $memberWeightedScore = 0;
-                        $memberRawScores = 0;
+                        // Regrouper les scores par catégorie
+                        $scoresByCategory = $evaluation->scores->groupBy(function ($score) {
+                            return $score->criterion?->category?->id;
+                        })->filter(fn ($group, $key) => $key !== null);
+
+                        $memberCategoryScores = 0;
+                        $memberCategoryCount = 0;
                         $memberCriteriaCount = 0;
 
-                        foreach ($evaluation->scores as $score) {
-                            $memberWeightedScore += $score->weighted_score ?? 0;
-                            $memberRawScores += $score->raw_score ?? 0;
-                            $memberCriteriaCount++;
+                        foreach ($scoresByCategory as $categoryScores) {
+                            // Note de la catégorie = somme des notes pondérées (sur 20 si poids = 100%)
+                            $categoryScore = $categoryScores->sum('weighted_score');
+                            $memberCategoryScores += $categoryScore;
+                            $memberCategoryCount++;
+                            $memberCriteriaCount += $categoryScores->count();
                         }
 
-                        $memberAverage = $memberCriteriaCount > 0 ? ($memberRawScores / $memberCriteriaCount) : 0;
+                        // Moyenne du membre = moyenne des notes de catégories
+                        $memberAverage = $memberCategoryCount > 0 ? ($memberCategoryScores / $memberCategoryCount) : 0;
 
                         $membersEvaluations[] = [
                             'member_name' => $evaluation->juryMember->user->name ?? 'Membre inconnu',
                             'member_id' => $evaluation->jury_member_id,
-                            'total_weighted_score' => $memberWeightedScore,
-                            'average_score' => $memberAverage,
+                            'total_weighted_score' => $memberCategoryScores,
+                            'average_score' => round($memberAverage, 2),
                             'criteria_count' => $memberCriteriaCount,
+                            'category_count' => $memberCategoryCount,
                         ];
 
-                        $totalMembersWeightedScore += $memberWeightedScore;
-                        $totalMembersRawScores += $memberRawScores;
-                        $totalMembersCriteriaCount += $memberCriteriaCount;
+                        $totalMembersAverages += $memberAverage;
                         $membersCount++;
                     }
                 }
@@ -175,21 +195,26 @@ class JuryController extends Controller
                 // Vérifier si tous les membres ont évalué
                 $allMembersEvaluated = $membersCount >= $juryMembersCount;
 
-                // Calculer la moyenne globale de tous les membres
-                $globalAverage = $membersCount > 0 ? ($totalMembersRawScores / $totalMembersCriteriaCount) : 0;
-                $globalWeightedScore = $membersCount > 0 ? ($totalMembersWeightedScore / $membersCount) : 0;
+                // Calculer la moyenne globale = moyenne des moyennes des membres
+                $globalAverage = $membersCount > 0 ? ($totalMembersAverages / $membersCount) : 0;
 
-                // Récupérer le badge demandé par le formateur
-                $requestedBadge = $candidature->badge;
+                // Déterminer le badge décerné en fonction de la moyenne et des seuils configurés
+                $awardedBadge = null;
+                if ($globalAverage > 0) {
+                    $awardedBadge = Badge::where('min_score', '<=', $globalAverage)
+                        ->where('max_score', '>=', $globalAverage)
+                        ->orderBy('min_score', 'desc')
+                        ->first();
+                }
 
                 $presidentData[$candidature->id] = [
                     'members_evaluations' => $membersEvaluations,
                     'all_members_evaluated' => $allMembersEvaluated,
                     'members_count' => $membersCount,
                     'total_members' => $juryMembersCount,
-                    'global_weighted_score' => $globalWeightedScore,
-                    'global_average' => $globalAverage,
-                    'requested_badge' => $requestedBadge,
+                    'global_weighted_score' => $totalMembersAverages,
+                    'global_average' => round($globalAverage, 2),
+                    'awarded_badge' => $awardedBadge,
                     'president_comment' => $allEvaluations->first()?->president_comment,
                     'president_decision' => $allEvaluations->first()?->president_decision,
                 ];
@@ -376,10 +401,17 @@ class JuryController extends Controller
         // Garder toutes les candidatures (on affichera un badge pour celles évaluées)
         $candidatures = $allCandidatures;
 
-        // Calculer le maximum possible de la somme des notes pondérées
-        // Si on met 20 partout, la somme = (somme des poids / 100) × 20
+        // Calculer le total des poids des critères
         $totalWeight = $categories->flatMap(fn ($category) => $category->criteria)->sum('weight');
+
+        // Maximum possible de la somme des notes pondérées
+        // Après normalisation sur 20, si on met le max (20/20) partout : max = (somme_poids / 100) × 20
+        // Mais pour simplifier l'affichage, on considère que le max est toujours 20 (si poids = 100%)
+        // Si les poids ne totalisent pas 100%, le max réel sera proportionnel
         $maxWeightedScore = ($totalWeight / 100) * 20;
+
+        // Récupérer l'échelle de notation configurée
+        $noteScale = LabellisationSetting::getNoteScale();
 
         return view('admin.jury-evaluation', [
             'jury' => $jury,
@@ -391,6 +423,7 @@ class JuryController extends Controller
             'comments' => $comments,
             'maxWeightedScore' => $maxWeightedScore,
             'evaluatedCandidatureIds' => $evaluatedCandidatureIds,
+            'noteScale' => $noteScale,
         ]);
     }
 
@@ -432,12 +465,15 @@ class JuryController extends Controller
         $weightedScores = $request->input('weighted_scores', []);
         $comments = $request->input('comments', []);
 
+        // Récupérer l'échelle de notation configurée
+        $noteScale = LabellisationSetting::getNoteScale();
+
         // Valider les notes
         foreach ($scores as $criterionId => $rawScore) {
-            if ($rawScore !== null && $rawScore !== '' && ($rawScore < 0 || $rawScore > 20)) {
+            if ($rawScore !== null && $rawScore !== '' && ($rawScore < 0 || $rawScore > $noteScale)) {
                 return redirect()
                     ->route('admin.jury.evaluation', ['jury' => $jury->id, 'candidature' => $candidature->id])
-                    ->with('error', 'Les notes doivent être comprises entre 0 et 20.')
+                    ->with('error', "Les notes doivent être comprises entre 0 et {$noteScale}.")
                     ->withInput();
             }
         }
@@ -558,11 +594,44 @@ class JuryController extends Controller
 
         // Mettre à jour le statut de la candidature
         if ($decision === 'approved') {
-            // Attribuer le badge demandé si approuvé
-            $candidature->update([
-                'status' => 'validated',
-                'current_step_id' => $certificationStep?->id,
-            ]);
+            // Calculer le score final et déterminer le badge
+            $calculationService = new EvaluationCalculationService;
+            $finalScore = $calculationService->calculateFinalScore($candidature);
+            $badge = $calculationService->determineBadge($candidature);
+
+            if ($badge) {
+                // Générer l'attestation PDF
+                $attestationService = new AttestationService;
+                $attestationPath = $attestationService->generateAttestation($candidature, $badge, $finalScore);
+
+                // Attribuer le badge et sauvegarder l'attestation
+                $candidature->update([
+                    'status' => 'validated',
+                    'current_step_id' => $certificationStep?->id,
+                    'badge_id' => $badge->id,
+                    'badge_awarded_at' => now(),
+                    'attestation_path' => $attestationPath,
+                ]);
+
+                // Envoyer l'email de notification avec l'attestation
+                $formateur = $candidature->user;
+                Mail::to($formateur->email)->send(new BadgeAwardedMail(
+                    $formateur,
+                    $badge,
+                    $candidature->fresh(),
+                    $finalScore
+                ));
+
+                $message = "La candidature a été approuvée. Le badge \"{$badge->label}\" a été attribué au formateur et l'attestation a été envoyée par email.";
+            } else {
+                // Score insuffisant pour un badge
+                $candidature->update([
+                    'status' => 'rejected',
+                    'current_step_id' => $certificationStep?->id,
+                ]);
+
+                $message = "La candidature a été approuvée mais le score final ({$finalScore}/20) est insuffisant pour l'attribution d'un badge.";
+            }
 
             // Créer ou mettre à jour le CandidatureStep pour l'étape Certification
             if ($certificationStep) {
@@ -577,8 +646,6 @@ class JuryController extends Controller
                     ]
                 );
             }
-
-            $message = 'La candidature a été approuvée. Le badge a été attribué au formateur.';
         } else {
             $candidature->update([
                 'status' => 'rejected',

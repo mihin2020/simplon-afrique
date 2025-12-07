@@ -329,16 +329,81 @@ class EvaluationGridDetail extends Component
         return EvaluationCriterion::where('evaluation_category_id', $categoryId)->sum('weight');
     }
 
+    /**
+     * Vérifie si une catégorie a une somme de poids égale à 100%.
+     */
+    public function isCategoryComplete(string $categoryId): bool
+    {
+        $totalWeight = EvaluationCriterion::where('evaluation_category_id', $categoryId)->sum('weight');
+
+        return abs($totalWeight - 100) < 0.01; // Tolérance pour les erreurs d'arrondi
+    }
+
+    /**
+     * Retourne le poids total d'une catégorie.
+     */
+    public function getCategoryWeight(string $categoryId): float
+    {
+        return EvaluationCriterion::where('evaluation_category_id', $categoryId)->sum('weight');
+    }
+
+    /**
+     * Vérifie si la grille est valide (toutes les catégories ont 100% de poids).
+     */
+    public function isGridValid(): bool
+    {
+        if (! $this->grid) {
+            return false;
+        }
+
+        foreach ($this->grid->categories as $category) {
+            if (! $this->isCategoryComplete($category->id)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Retourne les catégories incomplètes (poids != 100%).
+     */
+    public function getIncompleteCategoriesProperty(): array
+    {
+        if (! $this->grid) {
+            return [];
+        }
+
+        $incomplete = [];
+        foreach ($this->grid->categories as $category) {
+            $totalWeight = $this->getCategoryWeight($category->id);
+            if (abs($totalWeight - 100) >= 0.01) {
+                $incomplete[] = [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'total_weight' => $totalWeight,
+                    'missing' => 100 - $totalWeight,
+                ];
+            }
+        }
+
+        return $incomplete;
+    }
+
     public function render()
     {
         if (! $this->grid) {
             return view('livewire.admin.evaluation-grid-detail', [
                 'grid' => null,
+                'incompleteCategories' => [],
+                'isGridValid' => false,
             ]);
         }
 
         return view('livewire.admin.evaluation-grid-detail', [
             'grid' => $this->grid,
+            'incompleteCategories' => $this->incompleteCategories,
+            'isGridValid' => $this->isGridValid(),
         ]);
     }
 }

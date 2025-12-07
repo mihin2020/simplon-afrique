@@ -20,6 +20,16 @@ class JuryCreate extends Component
 
     public function submit(): void
     {
+        $user = auth()->user()->load('roles');
+        $isSuperAdmin = $user->roles->contains('name', 'super_admin');
+
+        if (! $isSuperAdmin) {
+            session()->flash('error', 'Seul le super administrateur peut créer un jury.');
+            $this->redirect(route('admin.juries'), navigate: true);
+
+            return;
+        }
+
         $this->validate();
 
         Jury::create([

@@ -43,12 +43,24 @@ class EvaluationScore extends Model
         return $this->belongsTo(EvaluationCriterion::class, 'evaluation_criterion_id');
     }
 
+    /**
+     * Calcule la note pondérée à partir de la note brute.
+     * La note brute est d'abord normalisée sur 20, puis multipliée par le poids.
+     */
     protected static function booted(): void
     {
         static::saving(function (EvaluationScore $score) {
             if ($score->isDirty('raw_score') && $score->criterion) {
                 $weight = $score->criterion->weight ?? 0;
-                $score->weighted_score = $score->raw_score * ($weight / 100);
+
+                // Récupérer l'échelle de notation configurée
+                $noteScale = LabellisationSetting::getNoteScale();
+
+                // Normaliser la note brute sur 20
+                $normalizedScore = ($score->raw_score / $noteScale) * 20;
+
+                // Calculer la note pondérée
+                $score->weighted_score = $normalizedScore * ($weight / 100);
             }
         });
     }

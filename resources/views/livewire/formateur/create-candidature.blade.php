@@ -58,32 +58,18 @@
         @endif
 
         <form wire:submit.prevent="submit" class="space-y-6" @if($hasActiveCandidature) onsubmit="return false;" @endif>
-            <!-- Section Badge -->
-            <div class="border-b border-gray-200 pb-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Badge visé</h3>
-                
-                <div>
-                    <label for="badgeId" class="block text-sm font-medium text-gray-700 mb-2">
-                        Sélectionnez le badge que vous souhaitez obtenir <span class="text-red-600">*</span>
-                    </label>
-                    <select
-                        id="badgeId"
-                        wire:model="badgeId"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 @if($hasActiveCandidature) bg-gray-100 cursor-not-allowed @endif"
-                        required
-                        @if($hasActiveCandidature) disabled @endif
-                    >
-                        <option value="">Sélectionner un badge</option>
-                        @foreach($badges as $badge)
-                            <option value="{{ $badge->id }}">
-                                {{ $badge->getEmoji() }} {{ str_replace('Label ', '', $badge->label) }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('badgeId') <span class="text-sm text-red-600 mt-1 block">{{ $message }}</span> @enderror
-                    <p class="mt-1 text-xs text-gray-500">
-                        Choisissez le niveau de certification que vous souhaitez obtenir.
-                    </p>
+            <!-- Information sur l'attribution du badge -->
+            <div class="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 mb-6">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div>
+                        <h3 class="text-sm font-medium text-blue-800 mb-1">Attribution automatique du badge</h3>
+                        <p class="text-sm text-blue-700">
+                            Le badge (Junior, Intermédiaire ou Senior) vous sera automatiquement attribué à la fin du processus de labellisation, en fonction de la moyenne obtenue lors de l'évaluation par le jury.
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -264,6 +250,11 @@
                     </span>
                     <span wire:loading wire:target="submit">Dépôt en cours...</span>
                 </button>
+            </div>
+        </form>
+    </div>
+</div>
+
             </div>
         </form>
     </div>

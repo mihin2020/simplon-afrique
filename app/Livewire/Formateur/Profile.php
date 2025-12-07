@@ -304,3 +304,126 @@ class Profile extends Component
         ]);
     }
 }
+
+
+        session()->flash('message', 'Certification ajoutée avec succès.');
+    }
+
+    public function save(): void
+    {
+        // Validation personnalisée pour l'email unique (sauf pour l'utilisateur actuel)
+        $this->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'firstName' => ['nullable', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,'.auth()->id()],
+            'phoneCountryCode' => ['nullable', 'string', 'max:10'],
+            'phoneNumber' => ['nullable', 'string', 'max:30'],
+            'country' => ['nullable', 'string', 'max:255'],
+            'technicalProfile' => ['nullable', 'string', 'max:255'],
+            'yearsOfExperience' => ['nullable', 'string', 'max:20'],
+            'portfolioUrl' => ['nullable', 'url', 'max:255'],
+            'photo' => ['nullable', 'image', 'max:2048'],
+            'cv' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
+            'selectedCertifications' => ['array'],
+        ]);
+
+        $user = auth()->user();
+
+        // Mettre à jour les informations de l'utilisateur
+        $user->update([
+            'name' => $this->name,
+            'first_name' => $this->firstName,
+            'email' => $this->email,
+        ]);
+
+        $profile = $user->formateurProfile;
+
+        $data = [
+            'phone_country_code' => $this->phoneCountryCode,
+            'phone_number' => $this->phoneNumber,
+            'country' => $this->country,
+            'technical_profile' => $this->technicalProfile,
+            'years_of_experience' => $this->yearsOfExperience,
+            'portfolio_url' => $this->portfolioUrl,
+        ];
+
+        // Gérer l'upload de la photo
+        if ($this->photo) {
+            // Supprimer l'ancienne photo si elle existe
+            if ($profile && $profile->photo_path) {
+                Storage::disk('public')->delete($profile->photo_path);
+            }
+
+            // Stocker la nouvelle photo
+            $path = $this->photo->store('formateurs/photos', 'public');
+            $data['photo_path'] = $path;
+            $this->photoPreview = Storage::url($path);
+        }
+
+        // Gérer l'upload du CV
+        if ($this->cv) {
+            // Supprimer l'ancien CV si il existe
+            if ($profile && $profile->cv_path) {
+                Storage::disk('public')->delete($profile->cv_path);
+            }
+
+            // Stocker le nouveau CV avec son nom original
+            $cvOriginalName = $this->cv->getClientOriginalName();
+            // Nettoyer le nom du fichier pour éviter les problèmes
+            $cvSafeName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $cvOriginalName);
+            // Ajouter un timestamp pour éviter les doublons
+            $cvFileName = time().'_'.$cvSafeName;
+            $cvPath = $this->cv->storeAs('formateurs/cv', $cvFileName, 'public');
+            $data['cv_path'] = $cvPath;
+            $this->cvPreview = $cvOriginalName;
+        }
+
+        if ($profile) {
+            $profile->update($data);
+        } else {
+            $data['user_id'] = $user->id;
+            $profile = FormateurProfile::create($data);
+        }
+
+        // Synchroniser les certifications
+        $profile->certifications()->sync($this->selectedCertifications);
+
+        $this->photo = null;
+        $this->cv = null;
+        session()->flash('success', 'Profil mis à jour avec succès.');
+    }
+
+    public function getExperienceOptions(): array
+    {
+        return [
+            'moins_de_2_ans' => 'Moins de 2 ans',
+            'entre_2_et_5_ans' => 'Entre 2 et 5 ans',
+            'plus_de_5_ans' => 'Plus de 5 ans',
+        ];
+    }
+
+    /**
+     * Extrait le nom original du CV depuis le chemin stocké.
+     * Le format est : timestamp_nom_original.pdf
+     */
+    private function extractOriginalCvName(string $cvPath): string
+    {
+        $filename = basename($cvPath);
+        // Retirer le timestamp au début (format: 1234567890_nom_fichier.pdf)
+        if (preg_match('/^\d+_(.+)$/', $filename, $matches)) {
+            return $matches[1];
+        }
+
+        return $filename;
+    }
+
+    public function render()
+    {
+        return view('livewire.formateur.profile', [
+            'selectedCertificationsList' => CertificationTag::whereIn('id', $this->selectedCertifications)->get(),
+            'countries' => CountriesData::getCountries(),
+            'phoneCountryCodes' => CountriesData::getPhoneCountryCodes(),
+            'experienceOptions' => $this->getExperienceOptions(),
+        ]);
+    }
+}

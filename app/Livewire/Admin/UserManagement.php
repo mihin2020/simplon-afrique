@@ -236,8 +236,9 @@ class UserManagement extends Component
             }
         }
 
+        $wasEditing = (bool) $this->editingUserId;
         $this->closeModal();
-        session()->flash('message', $this->editingUserId ? 'Utilisateur modifié avec succès.' : 'Utilisateur créé avec succès. Un email d\'activation a été envoyé.');
+        session()->flash('message', $wasEditing ? 'Utilisateur modifié avec succès.' : 'Utilisateur créé avec succès. Un email d\'activation a été envoyé.');
     }
 
     public function delete(string $userId): void

@@ -40,23 +40,6 @@
                 </select>
             </div>
 
-            <!-- Filtre Badge -->
-            <div>
-                <label for="badgeFilter" class="block text-sm font-medium text-gray-700 mb-2">
-                    Badge
-                </label>
-                <select
-                    id="badgeFilter"
-                    wire:model.live="badgeFilter"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                >
-                    <option value="">Tous les badges</option>
-                    @foreach($badges as $badge)
-                        <option value="{{ $badge->id }}">{{ $badge->getEmoji() }} {{ str_replace('Label ', '', $badge->label) }}</option>
-                    @endforeach
-                </select>
-            </div>
-
             <!-- Filtre Étape -->
             <div>
                 <label for="stepFilter" class="block text-sm font-medium text-gray-700 mb-2">
@@ -107,13 +90,13 @@
                                 Formateur
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Badge visé
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Étape actuelle
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Statut
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Badge attribué
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Date de dépôt
@@ -142,18 +125,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    @if($candidature->badge)
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-xl">{{ $candidature->badge->getEmoji() }}</span>
-                                            <span class="text-sm text-gray-900">
-                                                {{ str_replace('Label ', '', $candidature->badge->label) }}
-                                            </span>
-                                        </div>
-                                    @else
-                                        <span class="text-sm text-gray-400">Non défini</span>
-                                    @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @php
@@ -205,6 +176,18 @@
                                         bg-{{ $statusConfig['color'] }}-100 text-{{ $statusConfig['color'] }}-800">
                                         {{ $statusConfig['label'] }}
                                     </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($candidature->status === 'validated' && $candidature->badge)
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xl">{{ $candidature->badge->getEmoji() }}</span>
+                                            <span class="text-sm font-medium text-gray-900">
+                                                {{ str_replace('Label ', '', $candidature->badge->label) }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        <span class="text-sm text-gray-400">-</span>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {{ $candidature->created_at->format('d/m/Y à H:i') }}

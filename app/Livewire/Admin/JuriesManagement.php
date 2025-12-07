@@ -28,6 +28,16 @@ class JuriesManagement extends Component
 
     public function deleteJury(string $juryId): void
     {
+        // Vérifier que l'utilisateur est super admin
+        $user = auth()->user()->load('roles');
+        $isSuperAdmin = $user->roles->contains('name', 'super_admin');
+
+        if (! $isSuperAdmin) {
+            session()->flash('error', 'Seul le super administrateur peut supprimer un jury.');
+
+            return;
+        }
+
         $jury = Jury::findOrFail($juryId);
         $jury->delete();
 

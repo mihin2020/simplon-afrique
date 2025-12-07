@@ -12,4 +12,3 @@
     @livewire('admin.organizations-management')
 @endsection
 
-

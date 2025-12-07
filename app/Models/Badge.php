@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Badge extends Model
 {
@@ -45,6 +46,14 @@ class Badge extends Model
     }
 
     /**
+     * Get the configuration for this badge.
+     */
+    public function configuration(): HasOne
+    {
+        return $this->hasOne(BadgeConfiguration::class);
+    }
+
+    /**
      * Get the emoji for this badge.
      */
     public function getEmoji(): string
@@ -55,5 +64,17 @@ class Badge extends Model
             'senior' => '🥇',
             default => '🏅',
         };
+    }
+
+    /**
+     * Get the badge image URL.
+     */
+    public function getImageUrl(): ?string
+    {
+        if ($this->configuration && $this->configuration->image_path) {
+            return asset('storage/'.$this->configuration->image_path);
+        }
+
+        return null;
     }
 }

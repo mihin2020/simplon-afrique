@@ -41,6 +41,8 @@ class Candidature extends Model
         'motivation_letter_path',
         'portfolio_url',
         'attachments',
+        'badge_awarded_at',
+        'attestation_path',
     ];
 
     /**
@@ -51,6 +53,7 @@ class Candidature extends Model
     protected $casts = [
         'attachments' => 'array',
         'admin_global_score' => 'float',
+        'badge_awarded_at' => 'datetime',
     ];
 
     /**

@@ -109,7 +109,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end gap-2">
                                 <a
-                                    href="{{ route('admin.evaluation-grid.detail', $grid->id) }}"
+                                    href="{{ route('admin.evaluation-grids.detail', $grid->id) }}"
                                     class="text-red-600 hover:text-red-900"
                                     title="Voir le détail"
                                 >
@@ -165,6 +165,7 @@
         {{ $grids->links() }}
     </div>
 </div>
+
 
 
 

@@ -5,20 +5,49 @@ namespace App\Services;
 use App\Models\Badge;
 use App\Models\Candidature;
 use App\Models\Evaluation;
+use App\Models\LabellisationSetting;
 use App\Models\LabellisationStep;
+use Illuminate\Support\Collection;
 
 class EvaluationCalculationService
 {
     /**
+     * Get the configured note scale.
+     */
+    public function getNoteScale(): int
+    {
+        return LabellisationSetting::getNoteScale();
+    }
+
+    /**
+     * Normalize a raw score to a 20-point scale.
+     */
+    public function normalizeScore(float $rawScore): float
+    {
+        $noteScale = $this->getNoteScale();
+
+        if ($noteScale === 20) {
+            return $rawScore;
+        }
+
+        // Normaliser sur 20
+        return ($rawScore / $noteScale) * 20;
+    }
+
+    /**
      * Calculate weighted score from raw score and weight.
+     * The raw score is first normalized to 20, then weighted.
      */
     public function calculateWeightedScore(float $rawScore, float $weight): float
     {
-        return $rawScore * ($weight / 100);
+        $normalizedScore = $this->normalizeScore($rawScore);
+
+        return $normalizedScore * ($weight / 100);
     }
 
     /**
      * Calculate total score for a member on a step (sum of all weighted scores).
+     * This returns the raw sum of weighted scores.
      */
     public function calculateMemberTotalScore(Evaluation $evaluation): float
     {
@@ -26,7 +55,108 @@ class EvaluationCalculationService
     }
 
     /**
+     * Calculate the score for a single category.
+     * Since the sum of weights in a category = 100%, the result is directly on 20.
+     *
+     * @param  Collection  $scores  The scores for criteria in this category
+     * @return float The category score (on 20)
+     */
+    public function calculateCategoryScore(Collection $scores): float
+    {
+        if ($scores->isEmpty()) {
+            return 0.0;
+        }
+
+        // La somme des notes pondérées donne directement la note de la catégorie sur 20
+        // car les poids totalisent 100%
+        return $scores->sum('weighted_score');
+    }
+
+    /**
+     * Calculate the normalized average score (on 20) for a member's evaluation.
+     * Groups scores by category and calculates the average of all category scores.
+     *
+     * Algorithm:
+     * 1. For each category: sum weighted scores (= category score on 20)
+     * 2. Final average = sum of category scores / number of categories
+     */
+    public function calculateNormalizedAverage(Evaluation $evaluation): float
+    {
+        // Charger les scores avec leurs critères et catégories
+        $scores = $evaluation->scores()
+            ->with(['criterion.category'])
+            ->get();
+
+        if ($scores->isEmpty()) {
+            return 0.0;
+        }
+
+        // Regrouper les scores par catégorie
+        $scoresByCategory = $scores->groupBy(function ($score) {
+            return $score->criterion?->category?->id;
+        })->filter(function ($group, $key) {
+            return $key !== null; // Exclure les scores sans catégorie
+        });
+
+        if ($scoresByCategory->isEmpty()) {
+            return 0.0;
+        }
+
+        // Calculer la note de chaque catégorie
+        $categoryScores = $scoresByCategory->map(function ($categoryScores) {
+            return $this->calculateCategoryScore($categoryScores);
+        });
+
+        // La moyenne finale = somme des notes de catégories / nombre de catégories
+        $totalCategoryScores = $categoryScores->sum();
+        $categoryCount = $categoryScores->count();
+
+        return $categoryCount > 0 ? ($totalCategoryScores / $categoryCount) : 0.0;
+    }
+
+    /**
+     * Get detailed scores by category for display purposes.
+     *
+     * @return array Array of category scores with details
+     */
+    public function getScoresByCategory(Evaluation $evaluation): array
+    {
+        $scores = $evaluation->scores()
+            ->with(['criterion.category'])
+            ->get();
+
+        if ($scores->isEmpty()) {
+            return [];
+        }
+
+        $scoresByCategory = $scores->groupBy(function ($score) {
+            return $score->criterion?->category?->id;
+        })->filter(function ($group, $key) {
+            return $key !== null;
+        });
+
+        $result = [];
+        foreach ($scoresByCategory as $categoryId => $categoryScores) {
+            $category = $categoryScores->first()->criterion->category;
+            $categoryScore = $this->calculateCategoryScore($categoryScores);
+            $totalWeight = $categoryScores->sum(fn ($s) => $s->criterion->weight ?? 0);
+
+            $result[] = [
+                'category_id' => $categoryId,
+                'category_name' => $category->name ?? 'Sans catégorie',
+                'score' => round($categoryScore, 2),
+                'max_score' => 20,
+                'total_weight' => $totalWeight,
+                'criteria_count' => $categoryScores->count(),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
      * Calculate average score for a step across all members.
+     * Returns the average of all members' normalized scores (on 20).
      */
     public function calculateStepAverage(Candidature $candidature, LabellisationStep $step): float
     {
@@ -39,19 +169,21 @@ class EvaluationCalculationService
             return 0.0;
         }
 
-        $totalScores = 0;
+        $totalNormalizedScores = 0;
         $count = 0;
 
         foreach ($evaluations as $evaluation) {
+            // Calculer le score total pondéré (somme brute)
             $memberTotal = $this->calculateMemberTotalScore($evaluation);
             $evaluation->member_total_score = $memberTotal;
-            $evaluation->save();
 
-            $totalScores += $memberTotal;
+            // Calculer la moyenne normalisée sur 20
+            $normalizedAverage = $this->calculateNormalizedAverage($evaluation);
+            $totalNormalizedScores += $normalizedAverage;
             $count++;
         }
 
-        $average = $count > 0 ? $totalScores / $count : 0.0;
+        $average = $count > 0 ? $totalNormalizedScores / $count : 0.0;
 
         // Update average_score for all evaluations of this step
         foreach ($evaluations as $evaluation) {
@@ -114,38 +246,29 @@ class EvaluationCalculationService
             $finalScore = ($finalScore * 0.8) + ($candidature->admin_global_score * 0.2);
         }
 
-        return round($finalScore, 3);
+        return round($finalScore, 2);
     }
 
     /**
      * Determine which badge should be awarded based on final score.
+     * The badge is automatically determined based on the normalized score (on 20).
      */
     public function determineBadge(Candidature $candidature): ?Badge
     {
         $finalScore = $this->calculateFinalScore($candidature);
 
-        if ($finalScore < 10.0) {
+        // Get the minimum threshold from badges (Junior badge min_score)
+        $juniorBadge = Badge::where('name', 'junior')->first();
+        $minThreshold = $juniorBadge?->min_score ?? 10.0;
+
+        if ($finalScore < $minThreshold) {
             return null;
         }
 
-        // Get the badge requested by the formateur (from candidature.badge_id if set during submission)
-        $requestedBadge = $candidature->badge;
-
-        // If no specific badge was requested, determine based on score
-        if (! $requestedBadge) {
-            return Badge::where('min_score', '<=', $finalScore)
-                ->where('max_score', '>=', $finalScore)
-                ->first();
-        }
-
-        // Check if the final score meets the requirements for the requested badge
-        if ($finalScore >= $requestedBadge->min_score && $finalScore <= $requestedBadge->max_score) {
-            return $requestedBadge;
-        }
-
-        // If score doesn't match requested badge, find the appropriate badge
+        // Find the appropriate badge based on the final score
         return Badge::where('min_score', '<=', $finalScore)
             ->where('max_score', '>=', $finalScore)
+            ->orderBy('min_score', 'desc')
             ->first();
     }
 }

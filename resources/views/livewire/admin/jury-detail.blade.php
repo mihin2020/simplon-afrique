@@ -204,7 +204,7 @@
                             </span>
                             @if($isSuperAdmin)
                                 <a
-                                    href="{{ route('admin.evaluation-grid.detail', $jury->evaluationGrid->id) }}"
+                                    href="{{ route('admin.evaluation-grids.detail', $jury->evaluationGrid->id) }}"
                                     target="_blank"
                                     class="text-sm text-red-600 hover:text-red-700 font-medium inline-flex items-center gap-1"
                                 >
@@ -238,13 +238,15 @@
                                                 <span class="font-medium {{ $isEvaluated ? 'text-green-900' : 'text-gray-900' }} hover:underline">
                                                     {{ $candidature->user->name }}
                                                 </span>
-                                                @if($isEvaluated && isset($evaluationData['total_weighted_score']))
+                                                @if($isEvaluated && isset($evaluationData['average_score']))
                                                     <span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">
-                                                        Total: {{ number_format($evaluationData['total_weighted_score'], 2) }}
-                                                    </span>
-                                                    <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold">
                                                         Moyenne: {{ number_format($evaluationData['average_score'], 2) }}/20
                                                     </span>
+                                                    @if(isset($evaluationData['category_count']))
+                                                        <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
+                                                            {{ $evaluationData['category_count'] }} catégorie(s)
+                                                        </span>
+                                                    @endif
                                                     @if(isset($evaluationData['criteria_count']))
                                                         <span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
                                                             {{ $evaluationData['criteria_count'] }} critère(s)
@@ -385,10 +387,23 @@
                                     </div>
 
                                     <div class="flex items-center gap-3">
-                                        <!-- Badge demandé -->
-                                        @if($presidentInfo['requested_badge'])
-                                            <span class="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                {{ $presidentInfo['requested_badge']->label ?? $presidentInfo['requested_badge']->name ?? 'Badge' }}
+                                        <!-- Badge décerné selon la moyenne -->
+                                        @if($presidentInfo['awarded_badge'])
+                                            @php
+                                                $badgeColors = match($presidentInfo['awarded_badge']->name) {
+                                                    'senior' => 'bg-yellow-100 text-yellow-800 border-yellow-300',
+                                                    'intermediaire' => 'bg-gray-100 text-gray-800 border-gray-300',
+                                                    'junior' => 'bg-orange-100 text-orange-800 border-orange-300',
+                                                    default => 'bg-blue-100 text-blue-800 border-blue-300',
+                                                };
+                                            @endphp
+                                            <span class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border {{ $badgeColors }}">
+                                                {{ $presidentInfo['awarded_badge']->getEmoji() }}
+                                                {{ $presidentInfo['awarded_badge']->label ?? $presidentInfo['awarded_badge']->name }}
+                                            </span>
+                                        @elseif($presidentInfo['global_average'] > 0 && $presidentInfo['global_average'] < 10)
+                                            <span class="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                Non éligible
                                             </span>
                                         @endif
 
@@ -437,9 +452,9 @@
                                             <thead class="bg-gray-100">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Membre</th>
+                                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Catégories</th>
                                                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Critères</th>
-                                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Total pondéré</th>
-                                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Moyenne</th>
+                                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Moyenne /20</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-200">
@@ -449,10 +464,10 @@
                                                             {{ $memberEval['member_name'] }}
                                                         </td>
                                                         <td class="px-4 py-3 text-sm text-center text-gray-600">
-                                                            {{ $memberEval['criteria_count'] }}
+                                                            {{ $memberEval['category_count'] ?? '-' }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-sm text-center">
-                                                            <span class="font-semibold text-blue-700">{{ number_format($memberEval['total_weighted_score'], 2) }}</span>
+                                                        <td class="px-4 py-3 text-sm text-center text-gray-600">
+                                                            {{ $memberEval['criteria_count'] }}
                                                         </td>
                                                         <td class="px-4 py-3 text-sm text-center">
                                                             <span class="font-semibold text-green-700">{{ number_format($memberEval['average_score'], 2) }}/20</span>
@@ -462,19 +477,44 @@
                                                 <tr class="bg-gray-100 font-bold">
                                                     <td class="px-4 py-3 text-sm text-gray-900">Moyenne globale</td>
                                                     <td class="px-4 py-3 text-sm text-center text-gray-600">-</td>
-                                                    <td class="px-4 py-3 text-sm text-center text-blue-800">{{ number_format($presidentInfo['global_weighted_score'], 2) }}</td>
+                                                    <td class="px-4 py-3 text-sm text-center text-gray-600">-</td>
                                                     <td class="px-4 py-3 text-sm text-center text-green-800">{{ number_format($presidentInfo['global_average'], 2) }}/20</td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </div>
 
-                                    <!-- Badge demandé (version mobile) -->
-                                    @if($presidentInfo['requested_badge'])
-                                        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
-                                            <span class="text-sm text-blue-800 font-medium">Badge demandé :</span>
-                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
-                                                {{ $presidentInfo['requested_badge']->label ?? $presidentInfo['requested_badge']->name ?? 'Non spécifié' }}
+                                    <!-- Badge décerné selon la moyenne -->
+                                    @if($presidentInfo['awarded_badge'])
+                                        @php
+                                            $badgeColors = match($presidentInfo['awarded_badge']->name) {
+                                                'senior' => 'bg-yellow-50 border-yellow-300',
+                                                'intermediaire' => 'bg-gray-50 border-gray-300',
+                                                'junior' => 'bg-orange-50 border-orange-300',
+                                                default => 'bg-blue-50 border-blue-300',
+                                            };
+                                            $badgeTextColors = match($presidentInfo['awarded_badge']->name) {
+                                                'senior' => 'text-yellow-800',
+                                                'intermediaire' => 'text-gray-800',
+                                                'junior' => 'text-orange-800',
+                                                default => 'text-blue-800',
+                                            };
+                                        @endphp
+                                        <div class="mb-4 p-3 {{ $badgeColors }} border rounded-lg flex items-center justify-between">
+                                            <span class="text-sm {{ $badgeTextColors }} font-medium">Badge décerné :</span>
+                                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold {{ $badgeTextColors }} bg-white border">
+                                                {{ $presidentInfo['awarded_badge']->getEmoji() }}
+                                                {{ $presidentInfo['awarded_badge']->label ?? $presidentInfo['awarded_badge']->name }}
+                                            </span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mb-4">
+                                            Ce badge est attribué automatiquement selon la moyenne ({{ number_format($presidentInfo['global_average'], 2) }}/20) et les seuils configurés.
+                                        </p>
+                                    @elseif($presidentInfo['global_average'] > 0 && $presidentInfo['global_average'] < 10)
+                                        <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+                                            <span class="text-sm text-red-800 font-medium">Badge décerné :</span>
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">
+                                                Non éligible (moyenne &lt; 10)
                                             </span>
                                         </div>
                                     @endif

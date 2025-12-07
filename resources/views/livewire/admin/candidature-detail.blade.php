@@ -100,17 +100,15 @@
                 @endif
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <div class="text-sm font-medium text-gray-700 mb-1">Badge visé</div>
-                    @if($candidature->badge)
+                @if($candidature->status === 'validated' && $candidature->badge)
+                    <div>
+                        <div class="text-sm font-medium text-gray-700 mb-1">Badge attribué</div>
                         <div class="flex items-center gap-2">
                             <span class="text-2xl">{{ $candidature->badge->getEmoji() }}</span>
                             <span class="text-lg text-gray-900">{{ str_replace('Label ', '', $candidature->badge->label) }}</span>
                         </div>
-                    @else
-                        <span class="text-gray-400">Non défini</span>
-                    @endif
-                </div>
+                    </div>
+                @endif
                 <div>
                     <div class="text-sm font-medium text-gray-700 mb-1">Statut</div>
                     @php
@@ -440,6 +438,32 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm font-medium text-gray-900 truncate">
+                                        {{ $attachment['name'] ?? 'Document ' . ($index + 1) }}
+                                    </p>
+                                    <p class="text-xs text-gray-500">Cliquez pour télécharger</p>
+                                </div>
+                                <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </div>
+
+        <!-- Note globale de l'administrateur -->
+        @if($candidature->status === 'in_review' || $candidature->status === 'submitted')
+            @livewire('admin.set-global-score', ['candidature' => $candidature], key('set-global-score-' . $candidature->id))
+        @endif
+    </div>
+</div>
+@else
+<div class="text-center py-12">
+    <p class="text-gray-500">Candidature non trouvée.</p>
+</div>
+@endif
+
                                         {{ $attachment['name'] ?? 'Document ' . ($index + 1) }}
                                     </p>
                                     <p class="text-xs text-gray-500">Cliquez pour télécharger</p>
