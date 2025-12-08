@@ -341,13 +341,6 @@
                                 <p class="text-sm leading-relaxed mx-auto mb-4" style="color: #5a6a7a; max-width: 480px;">
                                     {{ $attestationText ?: 'Nous certifions que le/la formateur(trice) mentionné(e) ci-dessus a satisfait aux exigences du processus de labellisation et s\'est vu attribuer le badge correspondant à son niveau de compétences.' }}
                                 </p>
-                                
-                                <!-- Badge -->
-                                <div class="inline-block mx-auto px-6 py-2 rounded-lg border-2" style="background: linear-gradient(135deg, #fef9e7, #f9e79f); border-color: #c9a227;">
-                                    <p class="text-xs uppercase tracking-wider font-medium" style="color: #7d6608;">Badge obtenu</p>
-                                    <p class="text-lg font-bold my-1" style="color: #7d6608;">🥇 Label Formateur Senior</p>
-                                    <p class="text-xs font-semibold" style="color: #9a7d0a;">Score final : 17.50/20</p>
-                                </div>
                             </div>
                             
                             <!-- Pied - Signature à droite avec date au-dessus -->
