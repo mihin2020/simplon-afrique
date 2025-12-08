@@ -225,6 +225,8 @@ class JuryDetail extends Component
 
         // Charger les données d'évaluation pour chaque candidature
         $evaluationsData = [];
+        $calculationService = new EvaluationCalculationService;
+
         if ($juryMember) {
             foreach ($availableCandidatures as $candidature) {
                 // Récupérer les évaluations soumises pour cette candidature et ce membre du jury
@@ -238,19 +240,17 @@ class JuryDetail extends Component
                 if ($evaluations->isNotEmpty() && $evaluations->first()->scores->isNotEmpty()) {
                     // Calculer la somme totale des notes pondérées
                     $totalWeightedScore = 0;
-                    $totalRawScores = 0;
                     $criteriaCount = 0;
+                    $evaluation = $evaluations->first();
 
-                    foreach ($evaluations as $evaluation) {
-                        foreach ($evaluation->scores as $score) {
-                            $totalWeightedScore += $score->weighted_score ?? 0;
-                            $totalRawScores += $score->raw_score ?? 0;
-                            $criteriaCount++;
-                        }
+                    foreach ($evaluation->scores as $score) {
+                        $totalWeightedScore += $score->weighted_score ?? 0;
+                        $criteriaCount++;
                     }
 
-                    // Calculer la moyenne des notes brutes
-                    $averageScore = $criteriaCount > 0 ? ($totalRawScores / $criteriaCount) : 0;
+                    // Calculer la moyenne normalisée en utilisant le service
+                    // Cette méthode groupe par catégories et calcule correctement la moyenne
+                    $averageScore = $calculationService->calculateNormalizedAverage($evaluation);
 
                     $evaluationsData[$candidature->id] = [
                         'evaluated' => true,
@@ -289,8 +289,6 @@ class JuryDetail extends Component
                 $membersEvaluations = [];
                 $allMembersEvaluated = true;
                 $totalMembersWeightedScore = 0;
-                $totalMembersRawScores = 0;
-                $totalMembersCriteriaCount = 0;
                 $membersCount = 0;
 
                 // Vérifier si tous les membres ont évalué
@@ -299,16 +297,16 @@ class JuryDetail extends Component
                 foreach ($allEvaluations as $evaluation) {
                     if ($evaluation->scores->isNotEmpty()) {
                         $memberWeightedScore = 0;
-                        $memberRawScores = 0;
                         $memberCriteriaCount = 0;
 
                         foreach ($evaluation->scores as $score) {
                             $memberWeightedScore += $score->weighted_score ?? 0;
-                            $memberRawScores += $score->raw_score ?? 0;
                             $memberCriteriaCount++;
                         }
 
-                        $memberAverage = $memberCriteriaCount > 0 ? ($memberRawScores / $memberCriteriaCount) : 0;
+                        // Utiliser le service pour calculer la moyenne normalisée
+                        // Cette méthode groupe par catégories et calcule correctement la moyenne sur 20
+                        $memberAverage = $calculationService->calculateNormalizedAverage($evaluation);
 
                         // Compter les catégories distinctes
                         $categoryCount = $evaluation->scores()
@@ -327,8 +325,6 @@ class JuryDetail extends Component
                         ];
 
                         $totalMembersWeightedScore += $memberWeightedScore;
-                        $totalMembersRawScores += $memberRawScores;
-                        $totalMembersCriteriaCount += $memberCriteriaCount;
                         $membersCount++;
                     }
                 }
@@ -336,8 +332,13 @@ class JuryDetail extends Component
                 // Vérifier si tous les membres ont évalué
                 $allMembersEvaluated = $membersCount >= $juryMembersCount;
 
-                // Calculer la moyenne globale de tous les membres
-                $globalAverage = $membersCount > 0 ? ($totalMembersRawScores / $totalMembersCriteriaCount) : 0;
+                // Calculer la moyenne globale : moyenne des moyennes normalisées de chaque membre
+                // Chaque moyenne est déjà normalisée sur 20 grâce à calculateNormalizedAverage()
+                $normalizedAverages = array_column($membersEvaluations, 'average_score');
+                $globalAverage = count($normalizedAverages) > 0
+                    ? (array_sum($normalizedAverages) / count($normalizedAverages))
+                    : 0;
+
                 $globalWeightedScore = $membersCount > 0 ? ($totalMembersWeightedScore / $membersCount) : 0;
 
                 // Récupérer le badge demandé par le formateur

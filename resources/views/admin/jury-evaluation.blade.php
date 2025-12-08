@@ -9,21 +9,43 @@
 @endsection
 
 @section('content')
+    @php
+        $noteScale = $noteScale ?? 20; // Valeur par défaut si non définie
+    @endphp
     <div class="space-y-6">
         <!-- En-tête -->
         <div class="mb-6">
-            <div class="flex items-center gap-3">
-                <h2 class="text-2xl font-semibold text-gray-900">Évaluation  : {{ $candidature->user->name }}</h2>
-                @if(in_array($candidature->id, $evaluatedCandidatureIds))
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        Déjà évalué
-                    </span>
-                @endif
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-2xl font-semibold text-gray-900">Évaluation  : {{ $candidature->user->name }}</h2>
+                    @if(in_array($candidature->id, $evaluatedCandidatureIds))
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            Déjà évalué
+                        </span>
+                    @endif
+                </div>
+                <a
+                    href="{{ route('admin.jury.detail', $jury->id) }}"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    Retour
+                </a>
             </div>
-            <p class="text-gray-600 mt-1">Jury : {{ $jury->name }}</p>
+            <div class="flex items-center gap-4 mt-1">
+                <p class="text-gray-600">Jury : {{ $jury->name }}</p>
+                <div class="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-sm font-medium text-blue-800">Échelle : 0 à {{ $noteScale }}</span>
+                </div>
+            </div>
         </div>
 
         @if(session('success'))
@@ -77,7 +99,7 @@
                                                 Poids
                                             </th>
                                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                                                Note brute<br><span class="text-xs font-normal">(0-20)</span>
+                                                Note brute<br><span class="text-xs font-normal">(0-{{ $noteScale }})</span>
                                             </th>
                                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                                                 Note pondérée
@@ -112,13 +134,15 @@
                                                             id="score_{{ $criterion->id }}"
                                                             value="{{ $scores[$criterion->id] ?? '' }}"
                                                             min="0"
-                                                            max="20"
+                                                            max="{{ $noteScale }}"
                                                             step="0.1"
                                                             class="w-24 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium bg-white"
                                                             placeholder="0.0"
                                                             data-weight="{{ $criterion->weight }}"
-                                                            oninput="calculateWeightedScore(this, '{{ $criterion->id }}', {{ $criterion->weight }})"
-                                                            onchange="calculateWeightedScore(this, '{{ $criterion->id }}', {{ $criterion->weight }})"
+                                                            data-note-scale="{{ $noteScale }}"
+                                                            data-category-id="{{ $category->id }}"
+                                                            oninput="calculateWeightedScore(this, '{{ $criterion->id }}', {{ $criterion->weight }}, {{ $noteScale }})"
+                                                            onchange="calculateWeightedScore(this, '{{ $criterion->id }}', {{ $criterion->weight }}, {{ $noteScale }})"
                                                         >
                                                     </div>
                                                 </td>
@@ -129,7 +153,7 @@
                                                             type="number"
                                                             name="weighted_scores[{{ $criterion->id }}]"
                                                             id="weighted_score_{{ $criterion->id }}"
-                                                            value="{{ isset($weightedScores[$criterion->id]) && $weightedScores[$criterion->id] !== null ? number_format($weightedScores[$criterion->id], 3) : (isset($scores[$criterion->id]) && $scores[$criterion->id] !== null && $scores[$criterion->id] !== '' ? number_format($scores[$criterion->id] * ($criterion->weight / 100), 3) : '') }}"
+                                                            value="{{ isset($weightedScores[$criterion->id]) && $weightedScores[$criterion->id] !== null ? number_format($weightedScores[$criterion->id], 3) : (isset($scores[$criterion->id]) && $scores[$criterion->id] !== null && $scores[$criterion->id] !== '' ? number_format((($scores[$criterion->id] / $noteScale) * 20) * ($criterion->weight / 100), 3) : '') }}"
                                                             min="0"
                                                             step="0.001"
                                                             class="w-32 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium bg-white"
@@ -208,10 +232,22 @@
         </form>
     </div>
     <script>
-        function calculateWeightedScore(input, criterionId, weight) {
+        const NOTE_SCALE = {{ $noteScale }};
+        
+        function calculateWeightedScore(input, criterionId, weight, noteScale) {
             // Récupérer le poids depuis l'attribut data-weight si disponible
             if (!weight && input.dataset.weight) {
                 weight = parseFloat(input.dataset.weight);
+            }
+            
+            // Récupérer l'échelle depuis l'attribut data-note-scale si disponible
+            if (!noteScale && input.dataset.noteScale) {
+                noteScale = parseFloat(input.dataset.noteScale);
+            }
+            
+            // Utiliser l'échelle globale si non fournie
+            if (!noteScale) {
+                noteScale = NOTE_SCALE;
             }
             
             let rawScore = parseFloat(input.value);
@@ -222,24 +258,30 @@
                 if (weightedInput) {
                     weightedInput.value = '';
                 }
-                updateTotalWeightedScore();
+                updateTotalWeightedScore(noteScale);
                 return;
             }
             
-            // Valider que la note est entre 0 et 20
+            // Valider que la note est entre 0 et l'échelle configurée
             if (rawScore < 0) {
                 rawScore = 0;
                 input.value = 0;
-            } else if (rawScore > 20) {
-                rawScore = 20;
-                input.value = 20;
+            } else if (rawScore > noteScale) {
+                rawScore = noteScale;
+                input.value = noteScale;
             }
             
             // S'assurer que le poids est un nombre valide
             weight = parseFloat(weight) || 0;
             
-            // Calculer la note pondérée : note_brute × (poids / 100)
-            const weightedScore = (rawScore * (weight / 100)).toFixed(3);
+            // Normaliser la note brute sur 20, puis appliquer le poids
+            // Formule : (note_brute / échelle) × 20 × (poids / 100)
+            let normalizedScore = rawScore;
+            if (noteScale !== 20) {
+                normalizedScore = (rawScore / noteScale) * 20;
+            }
+            
+            const weightedScore = (normalizedScore * (weight / 100)).toFixed(3);
             const weightedInput = document.getElementById('weighted_score_' + criterionId);
             
             if (weightedInput) {
@@ -247,36 +289,48 @@
             }
             
             // Mettre à jour le total
-            updateTotalWeightedScore();
+            updateTotalWeightedScore(noteScale);
         }
 
-        function updateTotalWeightedScore() {
+        function updateTotalWeightedScore(noteScale) {
+            // Utiliser l'échelle globale si non fournie
+            if (!noteScale) {
+                noteScale = NOTE_SCALE;
+            }
+            
             let totalWeighted = 0;
-            let totalWeight = 0;
             let criteriaCount = 0;
-            let sumRawScores = 0;
+            
+            // Grouper les critères par catégorie (comme dans le backend)
+            const categoriesData = {};
             
             // Parcourir tous les champs de note brute pour trouver ceux qui sont remplis
             document.querySelectorAll('input[name^="scores"]').forEach(scoreInput => {
                 const rawScore = parseFloat(scoreInput.value);
                 
                 if (scoreInput.value !== '' && !isNaN(rawScore)) {
-                    // Récupérer le poids du critère
-                    const weight = parseFloat(scoreInput.dataset.weight) || 0;
-                    
-                    // Récupérer la note pondérée correspondante
+                    // Récupérer la catégorie et la note pondérée
+                    const categoryId = scoreInput.dataset.categoryId;
                     const match = scoreInput.name.match(/\[([^\]]+)\]/);
-                    if (match) {
+                    
+                    if (match && categoryId) {
                         const criterionId = match[1];
                         const weightedInput = document.getElementById('weighted_score_' + criterionId);
                         
                         if (weightedInput) {
                             const weightedScore = parseFloat(weightedInput.value) || 0;
                             totalWeighted += weightedScore;
+                            
+                            // Initialiser la catégorie si nécessaire
+                            if (!categoriesData[categoryId]) {
+                                categoriesData[categoryId] = 0;
+                            }
+                            
+                            // Ajouter la note pondérée à la catégorie
+                            // La somme des notes pondérées d'une catégorie = note de la catégorie (sur 20)
+                            categoriesData[categoryId] += weightedScore;
                         }
                         
-                        totalWeight += weight;
-                        sumRawScores += rawScore;
                         criteriaCount++;
                     }
                 }
@@ -288,14 +342,13 @@
                 totalElement.textContent = totalWeighted.toFixed(3);
             }
             
-            // Calculer le maximum possible pour les critères notés
-            // Maximum = (somme_des_poids_des_critères_notés / 100) × 20
-            const maxPossibleForNotedCriteria = (totalWeight / 100) * 20;
-            
-            // Calculer la moyenne des notes brutes des critères notés
+            // Calculer la moyenne des catégories (comme dans EvaluationCalculationService)
+            // 1. Pour chaque catégorie : somme des notes pondérées = note de la catégorie (sur 20)
+            // 2. Moyenne = somme des notes de catégories / nombre de catégories
             let average = 0;
-            if (criteriaCount > 0) {
-                average = sumRawScores / criteriaCount;
+            const categoryScores = Object.values(categoriesData);
+            if (categoryScores.length > 0) {
+                average = categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length;
             }
             
             const averageElement = document.getElementById('average_score');
@@ -306,7 +359,7 @@
             // Afficher le maximum possible pour les critères notés (20 si tous les critères sont notés avec note max)
             const maxAverageElement = document.getElementById('max_average_score');
             if (maxAverageElement) {
-                // Le maximum de la moyenne est toujours 20 (note maximale sur chaque critère)
+                // Le maximum de la moyenne est toujours 20 (note maximale normalisée sur chaque critère)
                 maxAverageElement.textContent = '20.00';
             }
             
@@ -326,11 +379,12 @@
                 if (match) {
                     const criterionId = match[1];
                     const weight = parseFloat(input.dataset.weight) || parseFloat(input.getAttribute('data-weight'));
+                    const noteScale = parseFloat(input.dataset.noteScale) || NOTE_SCALE;
                     
                     // Si on a une valeur initiale, calculer la note pondérée
                     if (input.value && !isNaN(parseFloat(input.value))) {
                         if (weight && !isNaN(weight)) {
-                            calculateWeightedScore(input, criterionId, weight);
+                            calculateWeightedScore(input, criterionId, weight, noteScale);
                         }
                     }
                 }
@@ -338,12 +392,12 @@
             
             // Écouter les changements sur les champs de note pondérée pour recalculer le total
             document.querySelectorAll('input[name^="weighted_scores"]').forEach(input => {
-                input.addEventListener('input', updateTotalWeightedScore);
-                input.addEventListener('change', updateTotalWeightedScore);
+                input.addEventListener('input', () => updateTotalWeightedScore(NOTE_SCALE));
+                input.addEventListener('change', () => updateTotalWeightedScore(NOTE_SCALE));
             });
             
             // Calculer le total initial
-            updateTotalWeightedScore();
+            updateTotalWeightedScore(NOTE_SCALE);
         });
     </script>
 @endsection

@@ -4,6 +4,7 @@ namespace App\Livewire\Formateur;
 
 use App\Models\Evaluation;
 use App\Models\Jury;
+use App\Services\EvaluationCalculationService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -17,12 +18,36 @@ class MyCandidatures extends Component
     {
         $user = auth()->user();
         $candidatures = $user->candidatures()
-            ->with(['badge'])
+            ->with(['badge.configuration'])
             ->latest()
             ->paginate(10);
 
         // Pour chaque candidature, calculer les étapes dynamiques
-        $candidaturesWithSteps = $candidatures->getCollection()->map(function ($candidature) {
+        $calculationService = new EvaluationCalculationService;
+        $candidaturesWithSteps = $candidatures->getCollection()->map(function ($candidature) use ($calculationService) {
+            // Si la candidature est validée mais n'a pas de badge, le déterminer et l'assigner
+            if ($candidature->status === 'validated') {
+                // Si badge_id existe mais la relation n'est pas chargée, la charger avec configuration
+                if ($candidature->badge_id && ! $candidature->relationLoaded('badge')) {
+                    $candidature->load('badge.configuration');
+                }
+                // Si pas de badge du tout, le déterminer et l'assigner
+                elseif (! $candidature->badge_id) {
+                    $badge = $calculationService->determineBadge($candidature);
+                    if ($badge) {
+                        // Charger la configuration du badge
+                        $badge->load('configuration');
+                        $candidature->update([
+                            'badge_id' => $badge->id,
+                            'badge_awarded_at' => now(),
+                        ]);
+                        // Recharger la candidature avec la relation badge et configuration
+                        $candidature->refresh();
+                        $candidature->load('badge.configuration');
+                    }
+                }
+            }
+
             $stepsData = $this->calculateDynamicSteps($candidature);
 
             return [

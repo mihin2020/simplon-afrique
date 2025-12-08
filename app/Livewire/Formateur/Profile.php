@@ -74,7 +74,22 @@ class Profile extends Component
             $this->yearsOfExperience = $profile->years_of_experience;
             $this->portfolioUrl = $profile->portfolio_url;
             $this->photoPreview = $profile->photo_path ? Storage::url($profile->photo_path) : null;
-            $this->cvPreview = $profile->cv_path ? basename($profile->cv_path) : null;
+            // Extraire le nom original du fichier
+            // Format stocké: nom_original__hash.extension
+            if ($profile->cv_path) {
+                $filename = basename($profile->cv_path);
+                // Si le format contient __ (double underscore), extraire le nom original
+                if (strpos($filename, '__') !== false) {
+                    $parts = explode('__', $filename);
+                    $extension = pathinfo($filename, PATHINFO_EXTENSION);
+                    $this->cvPreview = $parts[0].'.'.$extension;
+                } else {
+                    // Ancien format (hash aléatoire), afficher tel quel
+                    $this->cvPreview = $filename;
+                }
+            } else {
+                $this->cvPreview = null;
+            }
             $this->selectedCertifications = $profile->certifications->pluck('id')->toArray();
         } else {
             // Valeurs par défaut si pas de profil
@@ -185,7 +200,19 @@ class Profile extends Component
                 Storage::disk('public')->delete($profile->cv_path);
             }
 
-            $cvPath = $this->cv->store('formateurs/cv', 'public');
+            // Stocker le CV avec nom aléatoire mais préserver le nom original dans le chemin
+            // Format: formateurs/cv/nom_original__hash.extension
+            $originalName = pathinfo($this->cv->getClientOriginalName(), PATHINFO_FILENAME);
+            // Nettoyer le nom original (enlever caractères spéciaux)
+            $cleanOriginalName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalName);
+            $extension = $this->cv->getClientOriginalExtension();
+            $hash = $this->cv->hashName();
+            $hashWithoutExt = pathinfo($hash, PATHINFO_FILENAME);
+
+            // Format final: nom_original__hash.extension
+            $finalName = $cleanOriginalName.'__'.$hashWithoutExt.'.'.$extension;
+
+            $cvPath = $this->cv->storeAs('formateurs/cv', $finalName, 'public');
             $data['cv_path'] = $cvPath;
             $this->cvPreview = $this->cv->getClientOriginalName();
         }

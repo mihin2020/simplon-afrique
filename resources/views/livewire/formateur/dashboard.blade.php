@@ -257,7 +257,7 @@
     </div>
 
     {{-- Section badge si validé --}}
-    @if($candidature && $candidature->status === 'validated' && $currentBadge)
+    @if($candidature && $candidature->status === 'validated')
         <div class="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl shadow-lg overflow-hidden border border-green-200">
             <!-- En-tête avec confettis virtuels -->
             <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 text-center">
@@ -268,59 +268,85 @@
             
             <div class="p-6">
                 <div class="flex flex-col md:flex-row items-center gap-6">
-                    <!-- Image du badge ou icône par défaut -->
-                    <div class="flex-shrink-0">
-                        @if($currentBadge->configuration && $currentBadge->configuration->image_path)
-                            <img 
-                                src="{{ asset('storage/' . $currentBadge->configuration->image_path) }}" 
-                                alt="{{ $currentBadge->label }}"
-                                class="w-32 h-32 object-contain drop-shadow-lg"
-                            >
-                        @else
-                            <div class="w-32 h-32 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg">
-                                <span class="text-6xl">{{ $currentBadge->getEmoji() }}</span>
+                    @if($currentBadge)
+                        <!-- Image du badge ou icône par défaut -->
+                        <div class="flex-shrink-0">
+                            @if($currentBadge->configuration && $currentBadge->configuration->image_path)
+                                <img 
+                                    src="{{ asset('storage/' . $currentBadge->configuration->image_path) }}" 
+                                    alt="{{ $currentBadge->label }}"
+                                    class="w-32 h-32 object-contain drop-shadow-lg"
+                                >
+                            @else
+                                <div class="w-32 h-32 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg">
+                                    <span class="text-6xl">{{ $currentBadge->getEmoji() }}</span>
+                                </div>
+                            @endif
+                        </div>
+                        
+                        <!-- Informations du badge -->
+                        <div class="flex-1 text-center md:text-left">
+                            <p class="text-sm font-medium text-green-700 uppercase tracking-wide mb-1">Badge obtenu</p>
+                            <h4 class="text-3xl font-bold text-gray-900 mb-2">{{ $currentBadge->label }}</h4>
+                            
+                            @if($candidature->badge_awarded_at)
+                                <p class="text-sm text-gray-600 mb-4">
+                                    Certifié le {{ \Carbon\Carbon::parse($candidature->badge_awarded_at)->format('d/m/Y à H:i') }}
+                                </p>
+                            @endif
+                            
+                            <!-- Boutons de téléchargement -->
+                            <div class="flex flex-wrap gap-3">
+                                <!-- Bouton télécharger attestation -->
+                                @if($candidature->attestation_path || ($candidature->status === 'validated' && $currentBadge))
+                                    <a 
+                                        href="{{ route('formateur.attestation.download', $candidature) }}"
+                                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md hover:shadow-lg"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        Télécharger l'attestation
+                                    </a>
+                                @endif
+                                
+                                <!-- Bouton télécharger le badge -->
+                                @if($currentBadge && $currentBadge->configuration && $currentBadge->configuration->image_path)
+                                    <a 
+                                        href="{{ route('formateur.badge.download', $candidature) }}"
+                                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition shadow-md hover:shadow-lg"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                        Télécharger le badge
+                                    </a>
+                                @endif
                             </div>
-                        @endif
-                    </div>
-                    
-                    <!-- Informations du badge -->
-                    <div class="flex-1 text-center md:text-left">
-                        <p class="text-sm font-medium text-green-700 uppercase tracking-wide mb-1">Badge obtenu</p>
-                        <h4 class="text-3xl font-bold text-gray-900 mb-2">{{ $currentBadge->label }}</h4>
-                        
-                        @if($candidature->badge_awarded_at)
-                            <p class="text-sm text-gray-600 mb-4">
-                                Certifié le {{ \Carbon\Carbon::parse($candidature->badge_awarded_at)->format('d/m/Y à H:i') }}
-                            </p>
-                        @endif
-                        
-                        <!-- Bouton télécharger attestation -->
-                        @if($candidature->attestation_path)
-                            <a 
-                                href="{{ route('formateur.attestation.download', $candidature) }}"
-                                class="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md hover:shadow-lg"
-                            >
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                Télécharger mon attestation
-                            </a>
-                        @endif
-                    </div>
+                        </div>
+                    @else
+                        <!-- Message si badge non encore déterminé -->
+                        <div class="flex-1 text-center">
+                            <p class="text-lg font-semibold text-gray-700 mb-2">Certification validée</p>
+                            <p class="text-sm text-gray-600">Le badge est en cours de détermination...</p>
+                        </div>
+                    @endif
                 </div>
                 
                 <!-- Message de félicitations -->
-                <div class="mt-6 p-4 bg-white/60 rounded-lg border border-green-200">
-                    <p class="text-gray-700 text-center">
-                        @if($currentBadge->name === 'senior')
-                            En tant que <strong>Formateur Senior</strong>, vous faites partie de l'élite de nos formateurs. Vous pouvez désormais mentorer d'autres formateurs et participer aux jurys d'évaluation.
-                        @elseif($currentBadge->name === 'intermediaire')
-                            En tant que <strong>Formateur Intermédiaire</strong>, vous avez démontré des compétences solides. Continuez à progresser pour atteindre le niveau Senior !
-                        @else
-                            En tant que <strong>Formateur Junior</strong>, vous avez franchi la première étape de votre parcours. Développez vos compétences pour évoluer vers les niveaux supérieurs !
-                        @endif
-                    </p>
-                </div>
+                @if($currentBadge)
+                    <div class="mt-6 p-4 bg-white/60 rounded-lg border border-green-200">
+                        <p class="text-gray-700 text-center">
+                            @if($currentBadge->name === 'senior')
+                                En tant que <strong>Formateur Senior</strong>, vous faites partie de l'élite de nos formateurs. Vous pouvez désormais mentorer d'autres formateurs et participer aux jurys d'évaluation.
+                            @elseif($currentBadge->name === 'intermediaire')
+                                En tant que <strong>Formateur Intermédiaire</strong>, vous avez démontré des compétences solides. Continuez à progresser pour atteindre le niveau Senior !
+                            @else
+                                En tant que <strong>Formateur Junior</strong>, vous avez franchi la première étape de votre parcours. Développez vos compétences pour évoluer vers les niveaux supérieurs !
+                            @endif
+                        </p>
+                    </div>
+                @endif
             </div>
         </div>
     @endif

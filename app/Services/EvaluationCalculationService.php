@@ -195,50 +195,37 @@ class EvaluationCalculationService
     }
 
     /**
-     * Calculate final score for a candidature (average of all step averages).
+     * Calculate final score for a candidature.
+     * This is the average of all jury members' normalized averages.
      */
     public function calculateFinalScore(Candidature $candidature): float
     {
-        $steps = $candidature->steps()
-            ->where('status', 'completed')
-            ->with('labellisationStep')
+        // Récupérer toutes les évaluations soumises pour cette candidature
+        $evaluations = Evaluation::where('candidature_id', $candidature->id)
+            ->where('status', 'submitted')
+            ->with('scores.criterion')
             ->get();
 
-        if ($steps->isEmpty()) {
+        if ($evaluations->isEmpty()) {
             return 0.0;
         }
 
-        $totalAverage = 0;
-        $count = 0;
+        $totalNormalizedAverage = 0;
+        $membersCount = 0;
 
-        foreach ($steps as $candidatureStep) {
-            $step = $candidatureStep->labellisationStep;
-
-            if (! $step) {
-                continue;
-            }
-
-            // Get or calculate average for this step
-            $evaluation = Evaluation::where('candidature_id', $candidature->id)
-                ->where('labellisation_step_id', $step->id)
-                ->where('status', 'submitted')
-                ->first();
-
-            if ($evaluation && $evaluation->average_score !== null) {
-                $totalAverage += $evaluation->average_score;
-            } else {
-                $stepAverage = $this->calculateStepAverage($candidature, $step);
-                $totalAverage += $stepAverage;
-            }
-
-            $count++;
+        foreach ($evaluations as $evaluation) {
+            // Calculer la moyenne normalisée pour chaque membre du jury
+            $normalizedAverage = $this->calculateNormalizedAverage($evaluation);
+            $totalNormalizedAverage += $normalizedAverage;
+            $membersCount++;
         }
 
-        if ($count === 0) {
+        if ($membersCount === 0) {
             return 0.0;
         }
 
-        $finalScore = $totalAverage / $count;
+        // Le score final est la moyenne des moyennes normalisées de tous les membres
+        $finalScore = $totalNormalizedAverage / $membersCount;
 
         // Optionally integrate admin global score if it exists
         if ($candidature->admin_global_score !== null) {

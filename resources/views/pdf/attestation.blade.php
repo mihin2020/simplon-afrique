@@ -173,50 +173,16 @@
         .certification-text {
             font-size: 14px;
             color: #5a6a7a;
-            line-height: 1.7;
-            max-width: 600px;
-            margin: 0 auto 18px;
+            line-height: 1.5;
+            max-width: 650px;
+            margin: 0 auto 8px;
             text-align: center;
-        }
-        
-        /* Section Badge */
-        .badge-section {
-            margin: 15px 0;
-        }
-        
-        .badge-container {
-            display: inline-block;
-            background: linear-gradient(135deg, #fef9e7 0%, #f9e79f 100%);
-            border: 2px solid #c9a227;
-            border-radius: 10px;
-            padding: 12px 30px;
-        }
-        
-        .badge-label {
-            font-size: 11px;
-            color: #7d6608;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 3px;
-        }
-        
-        .badge-name {
-            font-size: 20px;
-            font-weight: bold;
-            color: #7d6608;
-            margin: 5px 0;
-        }
-        
-        .badge-score {
-            font-size: 12px;
-            color: #9a7d0a;
-            font-weight: 600;
         }
         
         /* Section pied de page - Signature à droite */
         .footer-section {
             position: absolute;
-            bottom: 45px;
+            bottom: 40px;
             right: 70px;
             text-align: center;
         }
@@ -291,16 +257,18 @@
             
             <!-- Filigrane - Logo Simplon -->
             @php
-                $logoPath = null;
+                $logoBase64 = null;
                 if ($settings->logo_path) {
-                    $fullPath = public_path('storage/' . $settings->logo_path);
+                    $fullPath = storage_path('app/public/' . $settings->logo_path);
                     if (file_exists($fullPath)) {
-                        $logoPath = $fullPath;
+                        $logoData = file_get_contents($fullPath);
+                        $logoMime = mime_content_type($fullPath);
+                        $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
                     }
                 }
             @endphp
-            @if($logoPath)
-                <img src="{{ $logoPath }}" alt="" class="watermark">
+            @if($logoBase64)
+                <img src="{{ $logoBase64 }}" alt="" class="watermark">
             @endif
             
             <!-- Contenu -->
@@ -337,21 +305,12 @@
                 <p class="certification-text">
                     {{ $settings->attestation_text ?? 'Nous certifions que le/la formateur(trice) mentionné(e) ci-dessus a satisfait aux exigences du processus de labellisation et s\'est vu attribuer le badge correspondant à son niveau de compétences.' }}
                 </p>
-                
-                <!-- Badge -->
-                <div class="badge-section">
-                    <div class="badge-container">
-                        <div class="badge-label">Badge obtenu</div>
-                        <div class="badge-name">{{ $badge->getEmoji() }} {{ $badge->label }}</div>
-                        <div class="badge-score">Score final : {{ number_format($score, 2) }}/20</div>
-                    </div>
-                </div>
             </div>
             
             <!-- Pied de page - Date et Signature à droite -->
             <div class="footer-section">
-                <!-- Date et lieu au-dessus de la signature -->
-                <p class="info-text">
+                <!-- Date et lieu -->
+                <p class="info-text" style="margin-bottom: 8px;">
                     Fait à <span class="info-value">Dakar</span>, le <span class="info-value">{{ $date->format('d/m/Y') }}</span>
                 </p>
                 
@@ -359,16 +318,18 @@
                 <div class="signature-block">
                     <div class="signature-label">Signature</div>
                     @php
-                        $signaturePath = null;
+                        $signatureBase64 = null;
                         if ($settings->signature_path) {
-                            $fullPath = public_path('storage/' . $settings->signature_path);
+                            $fullPath = storage_path('app/public/' . $settings->signature_path);
                             if (file_exists($fullPath)) {
-                                $signaturePath = $fullPath;
+                                $signatureData = file_get_contents($fullPath);
+                                $signatureMime = mime_content_type($fullPath);
+                                $signatureBase64 = 'data:' . $signatureMime . ';base64,' . base64_encode($signatureData);
                             }
                         }
                     @endphp
-                    @if($signaturePath)
-                        <img src="{{ $signaturePath }}" alt="Signature" class="signature-image">
+                    @if($signatureBase64)
+                        <img src="{{ $signatureBase64 }}" alt="Signature" class="signature-image">
                     @else
                         <div style="height: 40px;"></div>
                     @endif

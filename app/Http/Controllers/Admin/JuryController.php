@@ -11,12 +11,14 @@ use App\Models\EvaluationGrid;
 use App\Models\EvaluationScore;
 use App\Models\Jury;
 use App\Models\JuryMember;
+use App\Models\LabellisationSetting;
 use App\Models\LabellisationStep;
 use App\Services\EvaluationCalculationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class JuryController extends Controller
@@ -216,8 +218,11 @@ class JuryController extends Controller
         // Garder toutes les candidatures (on affichera un badge pour celles évaluées)
         $candidatures = $allCandidatures;
 
+        // Récupérer l'échelle de notation configurée
+        $noteScale = LabellisationSetting::getNoteScale();
+
         // Calculer le maximum possible de la somme des notes pondérées
-        // Si on met 20 partout, la somme = (somme des poids / 100) × 20
+        // Si on met la note max partout, la somme = (somme des poids / 100) × 20 (après normalisation)
         $totalWeight = $categories->flatMap(fn ($category) => $category->criteria)->sum('weight');
         $maxWeightedScore = ($totalWeight / 100) * 20;
 
@@ -231,6 +236,7 @@ class JuryController extends Controller
             'comments' => $comments,
             'maxWeightedScore' => $maxWeightedScore,
             'evaluatedCandidatureIds' => $evaluatedCandidatureIds,
+            'noteScale' => $noteScale,
         ]);
     }
 
@@ -278,12 +284,15 @@ class JuryController extends Controller
         $weightedScores = $request->input('weighted_scores', []);
         $comments = $request->input('comments', []);
 
-        // Valider les notes
+        // Récupérer l'échelle de notation configurée
+        $noteScale = LabellisationSetting::getNoteScale();
+
+        // Valider les notes selon l'échelle configurée
         foreach ($scores as $criterionId => $rawScore) {
-            if ($rawScore !== null && $rawScore !== '' && ($rawScore < 0 || $rawScore > 20)) {
+            if ($rawScore !== null && $rawScore !== '' && ($rawScore < 0 || $rawScore > $noteScale)) {
                 return redirect()
                     ->route('admin.jury.evaluation', ['jury' => $jury->id, 'candidature' => $candidature->id])
-                    ->with('error', 'Les notes doivent être comprises entre 0 et 20.')
+                    ->with('error', "Les notes doivent être comprises entre 0 et {$noteScale}.")
                     ->withInput();
             }
         }
@@ -408,10 +417,16 @@ class JuryController extends Controller
 
         // Mettre à jour le statut de la candidature
         if ($decision === 'approved') {
-            // Attribuer le badge demandé si approuvé
+            // Déterminer et attribuer le badge automatiquement selon la moyenne
+            $calculationService = new EvaluationCalculationService;
+            $badge = $calculationService->determineBadge($candidature);
+
+            // Attribuer le badge si approuvé
             $candidature->update([
                 'status' => 'validated',
                 'current_step_id' => $certificationStep?->id,
+                'badge_id' => $badge?->id,
+                'badge_awarded_at' => $badge ? now() : null,
             ]);
 
             // Créer ou mettre à jour le CandidatureStep pour l'étape Certification
@@ -426,6 +441,19 @@ class JuryController extends Controller
                         'completed_at' => now(),
                     ]
                 );
+            }
+
+            // Générer l'attestation si le badge a été attribué
+            if ($badge) {
+                try {
+                    $attestationService = new \App\Services\AttestationService;
+                    $finalScore = $calculationService->calculateFinalScore($candidature);
+                    $attestationPath = $attestationService->generateAttestation($candidature, $badge, $finalScore);
+                    $candidature->update(['attestation_path' => $attestationPath]);
+                } catch (\Exception $e) {
+                    // Log l'erreur mais ne bloque pas la validation
+                    Log::error('Erreur lors de la génération de l\'attestation: '.$e->getMessage());
+                }
             }
 
             $message = 'La candidature a été approuvée. Le badge a été attribué au formateur.';

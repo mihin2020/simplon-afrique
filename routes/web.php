@@ -68,6 +68,9 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/attestation/{candidature}/download', [AttestationController::class, 'download'])
             ->name('attestation.download');
+        
+        Route::get('/badge/{candidature}/download', [AttestationController::class, 'downloadBadge'])
+            ->name('badge.download');
     });
 
     // Routes Admin / Super Admin

@@ -16,7 +16,7 @@ class Dashboard extends Component
         // Charger la candidature avec toutes les relations nécessaires
         $candidature = $user->candidatures()
             ->with([
-                'badge',
+                'badge.configuration',
                 'currentStep',
                 'steps.labellisationStep',
             ])
@@ -25,7 +25,48 @@ class Dashboard extends Component
 
         // L'utilisateur est certifié uniquement si la candidature est validée
         $isCertified = $candidature && $candidature->status === 'validated';
-        $currentBadge = $isCertified ? $candidature->badge : null;
+
+        // Déterminer le badge si la candidature est validée
+        $currentBadge = null;
+        if ($isCertified) {
+            // Si badge_id existe mais la relation n'est pas chargée, la charger avec configuration
+            if ($candidature->badge_id && ! $candidature->relationLoaded('badge')) {
+                $candidature->load('badge.configuration');
+            }
+
+            // Si la relation badge est chargée et existe, l'utiliser
+            if ($candidature->badge) {
+                $currentBadge = $candidature->badge;
+                // S'assurer que la configuration est chargée
+                if (! $currentBadge->relationLoaded('configuration')) {
+                    $currentBadge->load('configuration');
+                }
+            } elseif ($candidature->badge_id) {
+                // Si badge_id existe mais la relation retourne null, charger directement avec configuration
+                $currentBadge = \App\Models\Badge::with('configuration')->find($candidature->badge_id);
+            } else {
+                // Déterminer le badge dynamiquement si pas encore assigné
+                $calculationService = new EvaluationCalculationService;
+                $currentBadge = $calculationService->determineBadge($candidature);
+                if ($currentBadge) {
+                    // Charger la configuration du badge
+                    $currentBadge->load('configuration');
+                    // Assigner le badge si pas encore assigné
+                    $candidature->update([
+                        'badge_id' => $currentBadge->id,
+                        'badge_awarded_at' => now(),
+                    ]);
+                    $candidature->refresh();
+                    $candidature->load('badge.configuration');
+                    $currentBadge = $candidature->badge ?? $currentBadge;
+                    // S'assurer que la configuration est chargée
+                    if ($currentBadge && ! $currentBadge->relationLoaded('configuration')) {
+                        $currentBadge->load('configuration');
+                    }
+                }
+            }
+        }
+
         $badgeLabel = $isCertified ? ($currentBadge?->label ?? 'Non certifié') : 'Non certifié';
 
         // Récupérer le jury assigné à cette candidature
