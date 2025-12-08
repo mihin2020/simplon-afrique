@@ -692,7 +692,14 @@
                                             @if($viewingUser->formateurProfile?->cv_path)
                                                 @php
                                                     $cvFilename = basename($viewingUser->formateurProfile->cv_path);
-                                                    $cvDisplayName = preg_match('/^\d+_(.+)$/', $cvFilename, $matches) ? $matches[1] : $cvFilename;
+                                                    // Format: nom_original__hash.extension
+                                                    if (strpos($cvFilename, '__') !== false) {
+                                                        $parts = explode('__', $cvFilename);
+                                                        $extension = pathinfo($cvFilename, PATHINFO_EXTENSION);
+                                                        $cvDisplayName = $parts[0] . '.' . $extension;
+                                                    } else {
+                                                        $cvDisplayName = $cvFilename;
+                                                    }
                                                 @endphp
                                                 <a href="{{ Storage::url($viewingUser->formateurProfile->cv_path) }}" target="_blank" class="inline-flex items-center gap-2 text-blue-600 hover:underline">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
