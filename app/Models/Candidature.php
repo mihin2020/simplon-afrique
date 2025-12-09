@@ -243,4 +243,26 @@ class Candidature extends Model
     {
         return LabellisationStep::count();
     }
+
+    /**
+     * Scope pour filtrer les candidatures selon le périmètre d'un référent pédagogique.
+     * Si l'utilisateur n'est pas référent ou n'a pas de restrictions, aucun filtre n'est appliqué.
+     */
+    public function scopeForReferent($query, ?\App\Models\User $referent = null): void
+    {
+        // Si pas d'utilisateur, pas référent, ou pas de pays assigné → AUCUN FILTRE (admin classique)
+        if (! $referent || ! $referent->isReferentPedagogique() || empty($referent->country)) {
+            return;
+        }
+
+        // SEULEMENT pour les référents pédagogiques → appliquer le filtre
+        $query->whereHas('user.formateurProfile', function ($q) use ($referent) {
+            $q->where('country', $referent->country);
+
+            $referentOrganizations = $referent->referentOrganizations()->pluck('organizations.id')->toArray();
+            if (! empty($referentOrganizations)) {
+                $q->whereIn('organization_id', $referentOrganizations);
+            }
+        });
+    }
 }

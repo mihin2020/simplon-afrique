@@ -40,22 +40,7 @@
                 </select>
             </div>
 
-            <!-- Filtre Étape -->
-            <div>
-                <label for="stepFilter" class="block text-sm font-medium text-gray-700 mb-2">
-                    Étape
-                </label>
-                <select
-                    id="stepFilter"
-                    wire:model.live="stepFilter"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                >
-                    <option value="">Toutes les étapes</option>
-                    @foreach($steps as $step)
-                        <option value="{{ $step->id }}">{{ $step->label }}</option>
-                    @endforeach
-                </select>
-            </div>
+         
         </div>
 
         <!-- Bouton Réinitialiser -->

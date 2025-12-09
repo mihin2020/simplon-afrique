@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Organization extends Model
@@ -40,5 +41,13 @@ class Organization extends Model
     public function formateurProfiles(): HasMany
     {
         return $this->hasMany(FormateurProfile::class);
+    }
+
+    /**
+     * Get all referents pédagogiques associated with this organization.
+     */
+    public function referents(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'referent_organizations')->withTimestamps();
     }
 }

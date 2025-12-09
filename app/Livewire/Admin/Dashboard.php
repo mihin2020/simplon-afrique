@@ -8,22 +8,41 @@ use App\Models\Jury;
 use App\Models\LabellisationStep;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class Dashboard extends Component
 {
     public function render()
     {
+        /** @var User|null $currentUser */
+        $currentUser = Auth::user();
+
         // Total formateurs
         $formateurRole = Role::where('name', 'formateur')->first();
-        $totalFormateurs = $formateurRole ? User::whereHas('roles', function ($query) use ($formateurRole) {
+        $formateursQuery = User::whereHas('roles', function ($query) use ($formateurRole) {
             $query->where('roles.id', $formateurRole->id);
-        })->count() : 0;
+        });
+
+        // Appliquer le filtre référent pédagogique si applicable
+        if ($currentUser) {
+            $formateursQuery->forReferent($currentUser);
+        }
+        $totalFormateurs = $formateursQuery->count();
 
         // Répartition des badges
-        $badges = Badge::withCount(['candidatures' => function ($query) {
-            $query->where('status', 'validated');
-        }])->get();
+        $badgesQuery = Badge::query();
+        if ($currentUser) {
+            $badgesQuery->withCount(['candidatures' => function ($query) use ($currentUser) {
+                $query->where('status', 'validated')
+                    ->forReferent($currentUser);
+            }]);
+        } else {
+            $badgesQuery->withCount(['candidatures' => function ($query) {
+                $query->where('status', 'validated');
+            }]);
+        }
+        $badges = $badgesQuery->get();
 
         $totalBadges = $badges->sum('candidatures_count');
         $badgeDistribution = $badges->map(function ($badge) use ($totalBadges) {
@@ -36,10 +55,15 @@ class Dashboard extends Component
 
         // Dossiers en cours par étape
         $steps = LabellisationStep::orderBy('display_order')->get();
-        $dossiersParEtape = $steps->map(function ($step) {
-            $count = Candidature::where('current_step_id', $step->id)
-                ->whereIn('status', ['submitted', 'in_review'])
-                ->count();
+        $dossiersParEtape = $steps->map(function ($step) use ($currentUser) {
+            $query = Candidature::where('current_step_id', $step->id)
+                ->whereIn('status', ['submitted', 'in_review']);
+
+            if ($currentUser) {
+                $query->forReferent($currentUser);
+            }
+
+            $count = $query->count();
 
             return [
                 'step' => $step,
@@ -48,28 +72,58 @@ class Dashboard extends Component
         });
 
         // Total dossiers en cours
-        $totalDossiersEnCours = Candidature::whereIn('status', ['submitted', 'in_review'])->count();
+        $dossiersQuery = Candidature::whereIn('status', ['submitted', 'in_review']);
+        if ($currentUser) {
+            $dossiersQuery->forReferent($currentUser);
+        }
+        $totalDossiersEnCours = $dossiersQuery->count();
 
-        // Jurys constitués
-        $jurysConstitués = Jury::where('status', 'constituted')->count();
-        $totalJurys = Jury::count();
+        // Jurys constitués (filtrer par candidatures du référent)
+        $jurysQuery = Jury::where('status', 'constituted');
+        if ($currentUser && $currentUser->isReferentPedagogique() && ! empty($currentUser->country)) {
+            $jurysQuery->whereHas('candidatures', function ($q) use ($currentUser) {
+                $q->forReferent($currentUser);
+            });
+        }
+        $jurysConstitués = $jurysQuery->count();
+
+        $totalJurysQuery = Jury::query();
+        if ($currentUser && $currentUser->isReferentPedagogique() && ! empty($currentUser->country)) {
+            $totalJurysQuery->whereHas('candidatures', function ($q) use ($currentUser) {
+                $q->forReferent($currentUser);
+            });
+        }
+        $totalJurys = $totalJurysQuery->count();
 
         // Alertes : Nouveaux formateurs (sans profil complété ou en attente)
-        $nouveauxFormateurs = User::whereHas('roles', function ($query) use ($formateurRole) {
+        $nouveauxFormateursQuery = User::whereHas('roles', function ($query) use ($formateurRole) {
             $query->where('roles.id', $formateurRole->id);
-        })->whereDoesntHave('formateurProfile')->count();
+        })->whereDoesntHave('formateurProfile');
+
+        if ($currentUser) {
+            $nouveauxFormateursQuery->forReferent($currentUser);
+        }
+        $nouveauxFormateurs = $nouveauxFormateursQuery->count();
 
         // Alertes : Dossiers en attente de validation finale
-        $dossiersEnAttente = Candidature::where('status', 'in_review')
-            ->whereNotNull('current_step_id')
-            ->count();
+        $dossiersEnAttenteQuery = Candidature::where('status', 'in_review')
+            ->whereNotNull('current_step_id');
+
+        if ($currentUser) {
+            $dossiersEnAttenteQuery->forReferent($currentUser);
+        }
+        $dossiersEnAttente = $dossiersEnAttenteQuery->count();
 
         // Activité récente (dernières candidatures validées)
-        $activiteRecente = Candidature::with(['user', 'badge'])
+        $activiteRecenteQuery = Candidature::with(['user', 'badge'])
             ->where('status', 'validated')
             ->latest('updated_at')
-            ->limit(5)
-            ->get();
+            ->limit(5);
+
+        if ($currentUser) {
+            $activiteRecenteQuery->forReferent($currentUser);
+        }
+        $activiteRecente = $activiteRecenteQuery->get();
 
         return view('livewire.admin.dashboard', [
             'totalFormateurs' => $totalFormateurs,

@@ -5,6 +5,8 @@ namespace App\Livewire\Admin;
 use App\Models\Badge;
 use App\Models\Candidature;
 use App\Models\LabellisationStep;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -55,6 +57,13 @@ class CandidaturesManagement extends Component
     {
         $query = Candidature::with(['user', 'badge', 'currentStep', 'steps.labellisationStep'])
             ->latest();
+
+        // Appliquer le filtre référent pédagogique (si applicable)
+        if (Auth::check()) {
+            /** @var User $currentUser */
+            $currentUser = Auth::user();
+            $query->forReferent($currentUser);
+        }
 
         // Filtre par recherche (nom ou email du formateur)
         if ($this->search) {

@@ -41,6 +41,8 @@ class User extends Authenticatable
         'first_name',
         'email',
         'password',
+        'is_referent_pedagogique',
+        'country',
     ];
 
     /**
@@ -102,6 +104,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get all organizations associated with this user as a referent pédagogique.
+     */
+    public function referentOrganizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'referent_organizations')->withTimestamps();
+    }
+
+    /**
      * Check if user has a specific role.
      */
     public function hasRole(string $roleName): bool
@@ -131,6 +141,81 @@ class User extends Authenticatable
     public function isFormateur(): bool
     {
         return $this->hasRole('formateur');
+    }
+
+    /**
+     * Check if user is a referent pédagogique.
+     */
+    public function isReferentPedagogique(): bool
+    {
+        return (bool) $this->is_referent_pedagogique;
+    }
+
+    /**
+     * Check if this referent can manage a specific formateur.
+     */
+    public function canManageFormateur(User $formateur): bool
+    {
+        // Si l'utilisateur n'est pas référent pédagogique, pas de restriction
+        if (! $this->isReferentPedagogique()) {
+            return true;
+        }
+
+        // Si le référent n'a pas de pays assigné, pas de restriction
+        if (empty($this->country)) {
+            return true;
+        }
+
+        $formateurProfile = $formateur->formateurProfile;
+
+        // Si le formateur n'a pas de profil, on ne peut pas le gérer
+        if (! $formateurProfile) {
+            return false;
+        }
+
+        // Vérifier que le formateur est du même pays
+        if ($formateurProfile->country !== $this->country) {
+            return false;
+        }
+
+        // Si le référent a des organisations assignées, vérifier que le formateur en fait partie
+        $referentOrganizations = $this->referentOrganizations()->pluck('organizations.id')->toArray();
+
+        if (! empty($referentOrganizations)) {
+            // Si le formateur n'a pas d'organisation, il n'est pas géré par ce référent
+            if (empty($formateurProfile->organization_id)) {
+                return false;
+            }
+
+            // Vérifier que l'organisation du formateur est dans la liste du référent
+            if (! in_array($formateurProfile->organization_id, $referentOrganizations)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Scope pour filtrer les formateurs selon le périmètre d'un référent pédagogique.
+     * Si l'utilisateur n'est pas référent ou n'a pas de restrictions, aucun filtre n'est appliqué.
+     */
+    public function scopeForReferent($query, ?User $referent = null): void
+    {
+        // Si pas d'utilisateur, pas référent, ou pas de pays assigné → AUCUN FILTRE (admin classique)
+        if (! $referent || ! $referent->isReferentPedagogique() || empty($referent->country)) {
+            return;
+        }
+
+        // SEULEMENT pour les référents pédagogiques → appliquer le filtre
+        $query->whereHas('formateurProfile', function ($q) use ($referent) {
+            $q->where('country', $referent->country);
+
+            $referentOrganizations = $referent->referentOrganizations()->pluck('organizations.id')->toArray();
+            if (! empty($referentOrganizations)) {
+                $q->whereIn('organization_id', $referentOrganizations);
+            }
+        });
     }
 
     /**

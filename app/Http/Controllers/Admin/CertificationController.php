@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Badge;
 use App\Models\Candidature;
 use App\Models\Jury;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class CertificationController extends Controller
 {
@@ -15,8 +17,15 @@ class CertificationController extends Controller
      */
     public function index()
     {
-        $user = auth()->user()->load('roles');
+        if (! Auth::check()) {
+            abort(403);
+        }
+
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('roles');
         $isSuperAdmin = $user->roles->contains('name', 'super_admin');
+        $isReferent = $user->isReferentPedagogique() && ! empty($user->country);
 
         // Récupérer les IDs des jurys dont l'utilisateur est membre
         $userJuryIds = Jury::whereHas('members', function ($query) use ($user) {
@@ -24,8 +33,11 @@ class CertificationController extends Controller
         })->pluck('id')->toArray();
 
         // Base query pour les candidatures liées aux jurys de l'utilisateur
-        $baseQuery = function ($query) use ($userJuryIds, $isSuperAdmin) {
-            if (! $isSuperAdmin && ! empty($userJuryIds)) {
+        $baseQuery = function ($query) use ($userJuryIds, $isSuperAdmin, $isReferent, $user) {
+            if ($isReferent) {
+                // Pour les référents pédagogiques : filtrer par pays et organisations
+                $query->forReferent($user);
+            } elseif (! $isSuperAdmin && ! empty($userJuryIds)) {
                 // Pour les membres du jury : uniquement les candidatures de leurs jurys
                 $query->whereHas('juries', function ($q) use ($userJuryIds) {
                     $q->whereIn('juries.id', $userJuryIds);

@@ -7,6 +7,7 @@ use App\Models\FormateurProfile;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -45,6 +46,18 @@ class UserManagement extends Component
 
     public $search = '';
 
+    // Propriétés pour le référent pédagogique
+    public $isReferentPedagogique = false;
+
+    public $referentCountry = '';
+
+    public $selectedOrganizations = [];
+
+    // Filtres pour la liste des formateurs
+    public $filterCountry = '';
+
+    public $filterOrganization = '';
+
     protected $paginationTheme = 'tailwind';
 
     public function mount(): void
@@ -59,7 +72,14 @@ class UserManagement extends Component
 
     public function isSuperAdmin(): bool
     {
-        return auth()->user()->roles->contains('name', 'super_admin');
+        if (! Auth::check()) {
+            return false;
+        }
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        return $user->roles->contains('name', 'super_admin');
     }
 
     public function switchTab(string $tab): void
@@ -71,7 +91,7 @@ class UserManagement extends Component
 
         $this->activeTab = $tab;
         $this->resetPage();
-        $this->reset(['search']);
+        $this->reset(['search', 'filterCountry', 'filterOrganization']);
     }
 
     public function openModal(?string $userId = null): void
@@ -114,8 +134,17 @@ class UserManagement extends Component
             } else {
                 $this->reset(['country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
             }
+
+            // Charger les données du référent pédagogique si c'est un admin
+            if ($userRole === 'admin' && $this->isSuperAdmin()) {
+                $this->isReferentPedagogique = $user->is_referent_pedagogique ?? false;
+                $this->referentCountry = $user->country ?? '';
+                $this->selectedOrganizations = $user->referentOrganizations()->pluck('organizations.id')->toArray();
+            } else {
+                $this->reset(['isReferentPedagogique', 'referentCountry', 'selectedOrganizations']);
+            }
         } else {
-            $this->reset(['firstName', 'lastName', 'email', 'country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
+            $this->reset(['firstName', 'lastName', 'email', 'country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedOrganizations']);
             // Si l'utilisateur n'est pas super_admin, forcer le rôle formateur
             $this->role = ($this->activeTab === 'formateurs' || ! $this->isSuperAdmin()) ? 'formateur' : 'admin';
         }
@@ -124,7 +153,7 @@ class UserManagement extends Component
     public function closeModal(): void
     {
         $this->showModal = false;
-        $this->reset(['editingUserId', 'firstName', 'lastName', 'email', 'role', 'country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
+        $this->reset(['editingUserId', 'firstName', 'lastName', 'email', 'role', 'country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedOrganizations']);
     }
 
     public function openDetailsModal(string $userId): void
@@ -164,7 +193,42 @@ class UserManagement extends Component
             $rules['trainingType'] = ['nullable', 'string', 'in:interne,externe'];
         }
 
+        // Ajouter les règles de validation pour les référents pédagogiques
+        if ($this->role === 'admin' && $this->isSuperAdmin()) {
+            $rules['isReferentPedagogique'] = ['nullable', 'boolean'];
+            if ($this->isReferentPedagogique) {
+                $rules['referentCountry'] = ['required', 'string', 'max:255'];
+            }
+            $rules['selectedOrganizations'] = ['nullable', 'array'];
+            $rules['selectedOrganizations.*'] = ['uuid', 'exists:organizations,id'];
+        }
+
         $this->validate($rules);
+
+        // Vérifier les restrictions si l'utilisateur connecté est référent pédagogique
+        if (Auth::check() && $this->role === 'formateur') {
+            /** @var User $currentUser */
+            $currentUser = Auth::user();
+
+            if ($currentUser->isReferentPedagogique()) {
+                // Vérifier le pays
+                if (! empty($currentUser->country) && $this->country !== $currentUser->country) {
+                    session()->flash('error', 'Vous ne pouvez ajouter que des formateurs du même pays que vous ('.$currentUser->country.').');
+
+                    return;
+                }
+
+                // Vérifier l'organisation si le référent a des organisations assignées
+                $referentOrganizations = $currentUser->referentOrganizations()->pluck('organizations.id')->toArray();
+                if (! empty($referentOrganizations) && ! empty($this->organizationId)) {
+                    if (! in_array($this->organizationId, $referentOrganizations)) {
+                        session()->flash('error', 'Vous ne pouvez ajouter que des formateurs appartenant à vos organisations assignées.');
+
+                        return;
+                    }
+                }
+            }
+        }
 
         if ($this->editingUserId) {
             $user = User::findOrFail($this->editingUserId);
@@ -178,6 +242,21 @@ class UserManagement extends Component
             $role = Role::where('name', $this->role)->first();
             if ($role) {
                 $user->roles()->sync([$role->id]);
+            }
+
+            // Mettre à jour les données du référent pédagogique si c'est un admin
+            if ($this->role === 'admin' && $this->isSuperAdmin()) {
+                $user->update([
+                    'is_referent_pedagogique' => $this->isReferentPedagogique ?? false,
+                    'country' => $this->isReferentPedagogique ? ($this->referentCountry ?: null) : null,
+                ]);
+
+                // Synchroniser les organisations du référent
+                if ($this->isReferentPedagogique) {
+                    $user->referentOrganizations()->sync($this->selectedOrganizations ?? []);
+                } else {
+                    $user->referentOrganizations()->sync([]);
+                }
             }
 
             // Mettre à jour ou créer le profil formateur si c'est un formateur
@@ -223,6 +302,19 @@ class UserManagement extends Component
             // Restaurer l'URL originale
             \Illuminate\Support\Facades\URL::forceRootUrl(config('app.url'));
 
+            // Mettre à jour les données du référent pédagogique si c'est un admin
+            if ($this->role === 'admin' && $this->isSuperAdmin()) {
+                $user->update([
+                    'is_referent_pedagogique' => $this->isReferentPedagogique ?? false,
+                    'country' => $this->isReferentPedagogique ? ($this->referentCountry ?: null) : null,
+                ]);
+
+                // Synchroniser les organisations du référent
+                if ($this->isReferentPedagogique) {
+                    $user->referentOrganizations()->sync($this->selectedOrganizations ?? []);
+                }
+            }
+
             // Créer le profil formateur si c'est un formateur
             if ($this->role === 'formateur') {
                 FormateurProfile::create([
@@ -247,7 +339,7 @@ class UserManagement extends Component
         $userRole = $user->roles->first()?->name ?? 'formateur';
 
         // Ne pas permettre la suppression du super admin connecté
-        if ($user->id === auth()->id()) {
+        if ($user->id === Auth::id()) {
             session()->flash('error', 'Vous ne pouvez pas supprimer votre propre compte.');
 
             return;
@@ -275,6 +367,26 @@ class UserManagement extends Component
             })
             ->with(['roles', 'juryMembers.jury']);
 
+        // Appliquer les restrictions du référent pédagogique pour les formateurs
+        if ($roleName === 'formateur' && Auth::check()) {
+            /** @var User $currentUser */
+            $currentUser = Auth::user();
+            $query->forReferent($currentUser);
+        }
+
+        // Appliquer les filtres dynamiques
+        if ($this->filterCountry) {
+            $query->whereHas('formateurProfile', function ($q) {
+                $q->where('country', $this->filterCountry);
+            });
+        }
+
+        if ($this->filterOrganization) {
+            $query->whereHas('formateurProfile', function ($q) {
+                $q->where('organization_id', $this->filterOrganization);
+            });
+        }
+
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('name', 'like', '%'.$this->search.'%')
@@ -283,6 +395,11 @@ class UserManagement extends Component
         }
 
         $users = $query->latest()->paginate(10);
+
+        // Pour les administrateurs, charger aussi les organisations du référent
+        if ($roleName === 'admin') {
+            $users->load('referentOrganizations');
+        }
 
         return view('livewire.admin.user-management', [
             'users' => $users,
