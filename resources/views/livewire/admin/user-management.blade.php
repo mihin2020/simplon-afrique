@@ -55,7 +55,7 @@
                     <input
                         type="text"
                         wire:model.live.debounce.300ms="search"
-                        placeholder="Rechercher par nom ou email..."
+                        placeholder="Rechercher par nom, prénom, email, pays ou organisation..."
                         class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                     <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,8 +64,8 @@
                 </div>
             </div>
             
-            @if($activeTab === 'formateurs')
-                {{-- Filtres par pays et organisation pour les formateurs --}}
+            @if($activeTab === 'formateurs' || ($activeTab === 'administrateurs' && $this->isSuperAdmin()))
+                {{-- Filtres par pays et organisation --}}
                 <div class="flex items-center gap-4">
                     <div class="w-64">
                         <label for="filterCountry" class="block text-xs font-medium text-gray-700 mb-1">
@@ -369,19 +369,96 @@
                             <div class="space-y-4">
                                 @if($activeTab === 'formateurs' || $role === 'formateur')
                                     {{-- Champs spécifiques aux formateurs --}}
+                                    @php
+                                        $currentUser = Auth::user();
+                                        $isOnlyReferent = $currentUser && $currentUser->isReferentPedagogique() && !$this->isSuperAdmin();
+                                    @endphp
                                     <div class="grid grid-cols-2 gap-4">
                                         {{-- Pays --}}
+                                        @if(!$isOnlyReferent)
+                                            <div>
+                                                <label for="country" class="block text-sm font-medium text-gray-700 mb-1">
+                                                    Pays
+                                                </label>
+                                                <div x-data="{ 
+                                                    open: false, 
+                                                    selected: @entangle('country'),
+                                                    getDisplayText() {
+                                                        if (!this.selected) return 'Sélectionner un pays';
+                                                        const item = @js($countries).find(c => c.name === this.selected);
+                                                        return item ? item.flag + ' ' + item.name : 'Sélectionner un pays';
+                                                    }
+                                                }" class="relative">
+                                                    <button
+                                                        type="button"
+                                                        @click="open = !open"
+                                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-left flex items-center justify-between"
+                                                    >
+                                                        <span x-text="getDisplayText()"></span>
+                                                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                        </svg>
+                                                    </button>
+                                                    <div
+                                                        x-show="open"
+                                                        @click.away="open = false"
+                                                        x-transition
+                                                        class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            @click="selected = ''; $wire.set('country', ''); open = false"
+                                                            class="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                        >
+                                                            Sélectionner un pays
+                                                        </button>
+                                                        @foreach($countries as $countryItem)
+                                                            <button
+                                                                type="button"
+                                                                @click="selected = '{{ $countryItem['name'] }}'; $wire.set('country', '{{ $countryItem['name'] }}'); open = false"
+                                                                :class="selected === '{{ $countryItem['name'] }}' ? 'bg-red-50' : ''"
+                                                                class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                                                            >
+                                                                <span class="text-xl">{{ $countryItem['flag'] }}</span>
+                                                                <span>{{ $countryItem['name'] }}</span>
+                                                            </button>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                                @error('country') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                            </div>
+                                        @else
+                                            {{-- Masquer le champ pays pour les référents pédagogiques --}}
+                                            <input type="hidden" wire:model="country" value="{{ $currentUser->country }}">
+                                        @endif
+
+                                        {{-- Organisation(s) --}}
                                         <div>
-                                            <label for="country" class="block text-sm font-medium text-gray-700 mb-1">
-                                                Pays
+                                            <label for="selectedOrganizations" class="block text-sm font-medium text-gray-700 mb-1">
+                                                Organisation(s)
                                             </label>
                                             <div x-data="{ 
-                                                open: false, 
-                                                selected: @entangle('country'),
-                                                getDisplayText() {
-                                                    if (!this.selected) return 'Sélectionner un pays';
-                                                    const item = @js($countries).find(c => c.name === this.selected);
-                                                    return item ? item.flag + ' ' + item.name : 'Sélectionner un pays';
+                                                open: false,
+                                                selected: @entangle('selectedOrganizations'),
+                                                toggleOrg(orgId) {
+                                                    if (this.selected.includes(orgId)) {
+                                                        this.selected = this.selected.filter(id => id !== orgId);
+                                                    } else {
+                                                        this.selected.push(orgId);
+                                                    }
+                                                    $wire.set('selectedOrganizations', this.selected);
+                                                },
+                                                isSelected(orgId) {
+                                                    return this.selected.includes(orgId);
+                                                },
+                                                getSelectedNames() {
+                                                    if (this.selected.length === 0) return 'Aucune organisation sélectionnée';
+                                                    const orgs = @js($organizations);
+                                                    const names = this.selected.map(id => {
+                                                        const org = orgs.find(o => o.id === id);
+                                                        return org ? org.name : '';
+                                                    }).filter(n => n);
+                                                    return names.length > 0 ? names.join(', ') : 'Aucune organisation sélectionnée';
                                                 }
                                             }" class="relative">
                                                 <button
@@ -389,7 +466,7 @@
                                                     @click="open = !open"
                                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-left flex items-center justify-between"
                                                 >
-                                                    <span x-text="getDisplayText()"></span>
+                                                    <span x-text="getSelectedNames()" class="truncate"></span>
                                                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                     </svg>
@@ -400,45 +477,31 @@
                                                     x-transition
                                                     class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
                                                 >
-                                                    <button
-                                                        type="button"
-                                                        @click="selected = ''; $wire.set('country', ''); open = false"
-                                                        class="w-full text-left px-4 py-2 hover:bg-gray-100"
-                                                    >
-                                                        Sélectionner un pays
-                                                    </button>
-                                                    @foreach($countries as $countryItem)
-                                                        <button
-                                                            type="button"
-                                                            @click="selected = '{{ $countryItem['name'] }}'; $wire.set('country', '{{ $countryItem['name'] }}'); open = false"
-                                                            :class="selected === '{{ $countryItem['name'] }}' ? 'bg-red-50' : ''"
-                                                            class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
-                                                        >
-                                                            <span class="text-xl">{{ $countryItem['flag'] }}</span>
-                                                            <span>{{ $countryItem['name'] }}</span>
-                                                        </button>
-                                                    @endforeach
+                                                    @if($organizations->count() > 0)
+                                                        @foreach($organizations as $organization)
+                                                            <button
+                                                                type="button"
+                                                                @click="toggleOrg('{{ $organization->id }}')"
+                                                                :class="isSelected('{{ $organization->id }}') ? 'bg-red-50' : ''"
+                                                                class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    :checked="isSelected('{{ $organization->id }}')"
+                                                                    class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                                                                >
+                                                                <span>{{ $organization->name }}</span>
+                                                            </button>
+                                                        @endforeach
+                                                    @else
+                                                        <div class="px-4 py-2 text-sm text-gray-500 italic">
+                                                            Aucune organisation assignée
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             </div>
-                                            @error('country') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
-                                        </div>
-
-                                        {{-- Organisation --}}
-                                        <div>
-                                            <label for="organizationId" class="block text-sm font-medium text-gray-700 mb-1">
-                                                Organisation
-                                            </label>
-                                            <select
-                                                id="organizationId"
-                                                wire:model="organizationId"
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                                            >
-                                                <option value="">Sélectionner une organisation</option>
-                                                @foreach($organizations as $organization)
-                                                    <option value="{{ $organization->id }}">{{ $organization->name }}</option>
-                                                @endforeach
-                                            </select>
-                                            @error('organizationId') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                            @error('selectedOrganizations') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                            @error('selectedOrganizations.*') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
                                         </div>
                                     </div>
                                 @endif
@@ -685,19 +748,19 @@
 
                                                 {{-- Organisations (optionnel, multiple) --}}
                                                 <div>
-                                                    <label for="selectedOrganizations" class="block text-sm font-medium text-gray-700 mb-1">
+                                                    <label for="selectedReferentOrganizations" class="block text-sm font-medium text-gray-700 mb-1">
                                                         Organisations (optionnel)
                                                     </label>
                                                     <div x-data="{ 
                                                         open: false,
-                                                        selected: @entangle('selectedOrganizations'),
+                                                        selected: @entangle('selectedReferentOrganizations'),
                                                         toggleOrg(orgId) {
                                                             if (this.selected.includes(orgId)) {
                                                                 this.selected = this.selected.filter(id => id !== orgId);
                                                             } else {
                                                                 this.selected.push(orgId);
                                                             }
-                                                            $wire.set('selectedOrganizations', this.selected);
+                                                            $wire.set('selectedReferentOrganizations', this.selected);
                                                         },
                                                         isSelected(orgId) {
                                                             return this.selected.includes(orgId);
@@ -745,8 +808,8 @@
                                                             @endforeach
                                                         </div>
                                                     </div>
-                                                    @error('selectedOrganizations') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
-                                                    @error('selectedOrganizations.*') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                                    @error('selectedReferentOrganizations') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                                    @error('selectedReferentOrganizations.*') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
                                                 </div>
                                             @endif
                                         </div>
@@ -870,8 +933,14 @@
                                         <p class="text-sm font-medium text-gray-900">{{ $viewingUser->formateurProfile?->country ?? '-' }}</p>
                                     </div>
                                     <div>
-                                        <span class="text-xs text-gray-500">Organisation</span>
-                                        <p class="text-sm font-medium text-gray-900">{{ $viewingUser->formateurProfile?->organization?->name ?? '-' }}</p>
+                                        <span class="text-xs text-gray-500">Organisation(s)</span>
+                                        <p class="text-sm font-medium text-gray-900">
+                                            @if($viewingUser->formateurProfile?->organizations && $viewingUser->formateurProfile->organizations->count() > 0)
+                                                {{ $viewingUser->formateurProfile->organizations->pluck('name')->join(', ') }}
+                                            @else
+                                                -
+                                            @endif
+                                        </p>
                                     </div>
                                     <div>
                                         <span class="text-xs text-gray-500">Type de formation</span>

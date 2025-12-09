@@ -61,10 +61,20 @@ class FormateurProfile extends Model
 
     /**
      * Get the organization associated with this formateur profile.
+     *
+     * @deprecated Use organizations() instead for multiple organizations support
      */
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * Get all organizations associated with this formateur profile.
+     */
+    public function organizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'formateur_profile_organization')->withTimestamps();
     }
 
     /**

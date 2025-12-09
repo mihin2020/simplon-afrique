@@ -11,16 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('referent_organizations', function (Blueprint $table) {
-            $table->uuid('user_id');
+        Schema::create('formateur_profile_organization', function (Blueprint $table) {
+            $table->uuid('formateur_profile_id');
             $table->uuid('organization_id');
             $table->timestamps();
 
-            $table->primary(['user_id', 'organization_id']);
+            $table->primary(['formateur_profile_id', 'organization_id']);
 
-            $table->foreign('user_id')
+            $table->foreign('formateur_profile_id')
                 ->references('id')
-                ->on('users')
+                ->on('formateurs_profiles')
                 ->cascadeOnDelete();
 
             $table->foreign('organization_id')
@@ -35,6 +35,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('referent_organizations');
+        Schema::dropIfExists('formateur_profile_organization');
     }
 };

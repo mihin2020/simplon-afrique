@@ -256,13 +256,28 @@ class Candidature extends Model
         }
 
         // SEULEMENT pour les référents pédagogiques → appliquer le filtre
-        $query->whereHas('user.formateurProfile', function ($q) use ($referent) {
-            $q->where('country', $referent->country);
+        $referentOrganizations = $referent->referentOrganizations()->pluck('organizations.id')->toArray();
 
-            $referentOrganizations = $referent->referentOrganizations()->pluck('organizations.id')->toArray();
-            if (! empty($referentOrganizations)) {
-                $q->whereIn('organization_id', $referentOrganizations);
-            }
-        });
+        if (! empty($referentOrganizations)) {
+            // Si le référent a des organisations assignées, afficher les candidatures de formateurs qui :
+            // - Sont du même pays
+            // - ET (ont au moins une organisation dans la liste du référent OU n'ont aucune organisation)
+            $query->whereHas('user.formateurProfile', function ($q) use ($referent, $referentOrganizations) {
+                $q->where('country', $referent->country)
+                    ->where(function ($subQ) use ($referentOrganizations) {
+                        // Soit le formateur a au moins une organisation dans la liste du référent
+                        $subQ->whereHas('organizations', function ($orgQ) use ($referentOrganizations) {
+                            $orgQ->whereIn('organizations.id', $referentOrganizations);
+                        })
+                        // Soit le formateur n'a aucune organisation
+                            ->orDoesntHave('organizations');
+                    });
+            });
+        } else {
+            // Si le référent n'a pas d'organisations assignées, afficher toutes les candidatures du même pays
+            $query->whereHas('user.formateurProfile', function ($q) use ($referent) {
+                $q->where('country', $referent->country);
+            });
+        }
     }
 }

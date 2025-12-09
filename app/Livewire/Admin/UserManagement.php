@@ -36,7 +36,7 @@ class UserManagement extends Component
 
     public $country = '';
 
-    public $organizationId = '';
+    public $selectedOrganizations = [];
 
     public $phoneCountryCode = '+33';
 
@@ -51,7 +51,7 @@ class UserManagement extends Component
 
     public $referentCountry = '';
 
-    public $selectedOrganizations = [];
+    public $selectedReferentOrganizations = [];
 
     // Filtres pour la liste des formateurs
     public $filterCountry = '';
@@ -127,38 +127,47 @@ class UserManagement extends Component
             if ($userRole === 'formateur' && $user->formateurProfile) {
                 $profile = $user->formateurProfile;
                 $this->country = $profile->country ?? '';
-                $this->organizationId = $profile->organization_id ?? '';
+                $this->selectedOrganizations = $profile->organizations()->pluck('organizations.id')->toArray();
                 $this->phoneCountryCode = $profile->phone_country_code ?? '+33';
                 $this->phoneNumber = $profile->phone_number ?? '';
                 $this->trainingType = $profile->training_type ?? '';
             } else {
-                $this->reset(['country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
+                $this->reset(['country', 'selectedOrganizations', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
             }
 
             // Charger les données du référent pédagogique si c'est un admin
             if ($userRole === 'admin' && $this->isSuperAdmin()) {
                 $this->isReferentPedagogique = $user->is_referent_pedagogique ?? false;
                 $this->referentCountry = $user->country ?? '';
-                $this->selectedOrganizations = $user->referentOrganizations()->pluck('organizations.id')->toArray();
+                $this->selectedReferentOrganizations = $user->referentOrganizations()->pluck('organizations.id')->toArray();
             } else {
-                $this->reset(['isReferentPedagogique', 'referentCountry', 'selectedOrganizations']);
+                $this->reset(['isReferentPedagogique', 'referentCountry', 'selectedReferentOrganizations']);
             }
         } else {
-            $this->reset(['firstName', 'lastName', 'email', 'country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedOrganizations']);
+            $this->reset(['firstName', 'lastName', 'email', 'country', 'selectedOrganizations', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedReferentOrganizations']);
             // Si l'utilisateur n'est pas super_admin, forcer le rôle formateur
             $this->role = ($this->activeTab === 'formateurs' || ! $this->isSuperAdmin()) ? 'formateur' : 'admin';
+
+            // Si l'utilisateur connecté est référent pédagogique (et pas super_admin), définir automatiquement le pays
+            if ($this->role === 'formateur' && Auth::check()) {
+                /** @var User $currentUser */
+                $currentUser = Auth::user();
+                if ($currentUser->isReferentPedagogique() && ! $this->isSuperAdmin()) {
+                    $this->country = $currentUser->country ?? '';
+                }
+            }
         }
     }
 
     public function closeModal(): void
     {
         $this->showModal = false;
-        $this->reset(['editingUserId', 'firstName', 'lastName', 'email', 'role', 'country', 'organizationId', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedOrganizations']);
+        $this->reset(['editingUserId', 'firstName', 'lastName', 'email', 'role', 'country', 'selectedOrganizations', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedReferentOrganizations']);
     }
 
     public function openDetailsModal(string $userId): void
     {
-        $this->viewingUser = User::with(['formateurProfile.organization', 'formateurProfile.certifications', 'roles'])->find($userId);
+        $this->viewingUser = User::with(['formateurProfile.organizations', 'formateurProfile.certifications', 'roles'])->find($userId);
         $this->showDetailsModal = true;
     }
 
@@ -187,7 +196,8 @@ class UserManagement extends Component
         // Ajouter les règles de validation pour les formateurs uniquement
         if ($this->role === 'formateur') {
             $rules['country'] = ['nullable', 'string', 'max:255'];
-            $rules['organizationId'] = ['nullable', 'uuid', 'exists:organizations,id'];
+            $rules['selectedOrganizations'] = ['nullable', 'array'];
+            $rules['selectedOrganizations.*'] = ['uuid', 'exists:organizations,id'];
             $rules['phoneCountryCode'] = ['nullable', 'string', 'max:10'];
             $rules['phoneNumber'] = ['nullable', 'string', 'max:30'];
             $rules['trainingType'] = ['nullable', 'string', 'in:interne,externe'];
@@ -199,8 +209,8 @@ class UserManagement extends Component
             if ($this->isReferentPedagogique) {
                 $rules['referentCountry'] = ['required', 'string', 'max:255'];
             }
-            $rules['selectedOrganizations'] = ['nullable', 'array'];
-            $rules['selectedOrganizations.*'] = ['uuid', 'exists:organizations,id'];
+            $rules['selectedReferentOrganizations'] = ['nullable', 'array'];
+            $rules['selectedReferentOrganizations.*'] = ['uuid', 'exists:organizations,id'];
         }
 
         $this->validate($rules);
@@ -210,6 +220,13 @@ class UserManagement extends Component
             /** @var User $currentUser */
             $currentUser = Auth::user();
 
+            // Si l'utilisateur est référent pédagogique (et pas super_admin), définir automatiquement le pays
+            if ($currentUser->isReferentPedagogique() && ! $this->isSuperAdmin()) {
+                if (! empty($currentUser->country)) {
+                    $this->country = $currentUser->country;
+                }
+            }
+
             if ($currentUser->isReferentPedagogique()) {
                 // Vérifier le pays
                 if (! empty($currentUser->country) && $this->country !== $currentUser->country) {
@@ -218,10 +235,12 @@ class UserManagement extends Component
                     return;
                 }
 
-                // Vérifier l'organisation si le référent a des organisations assignées
+                // Vérifier les organisations si le référent a des organisations assignées
                 $referentOrganizations = $currentUser->referentOrganizations()->pluck('organizations.id')->toArray();
-                if (! empty($referentOrganizations) && ! empty($this->organizationId)) {
-                    if (! in_array($this->organizationId, $referentOrganizations)) {
+                if (! empty($referentOrganizations) && ! empty($this->selectedOrganizations)) {
+                    // Vérifier que toutes les organisations sélectionnées sont dans la liste du référent
+                    $invalidOrgs = array_diff($this->selectedOrganizations, $referentOrganizations);
+                    if (! empty($invalidOrgs)) {
                         session()->flash('error', 'Vous ne pouvez ajouter que des formateurs appartenant à vos organisations assignées.');
 
                         return;
@@ -253,7 +272,7 @@ class UserManagement extends Component
 
                 // Synchroniser les organisations du référent
                 if ($this->isReferentPedagogique) {
-                    $user->referentOrganizations()->sync($this->selectedOrganizations ?? []);
+                    $user->referentOrganizations()->sync($this->selectedReferentOrganizations ?? []);
                 } else {
                     $user->referentOrganizations()->sync([]);
                 }
@@ -265,16 +284,19 @@ class UserManagement extends Component
                     'phone_country_code' => $this->phoneCountryCode ?: null,
                     'phone_number' => $this->phoneNumber ?: null,
                     'country' => $this->country ?: null,
-                    'organization_id' => $this->organizationId ?: null,
                     'training_type' => $this->trainingType ?: null,
                 ];
 
                 $profile = $user->formateurProfile;
                 if ($profile) {
                     $profile->update($profileData);
+                    // Synchroniser les organisations
+                    $profile->organizations()->sync($this->selectedOrganizations ?? []);
                 } else {
                     $profileData['user_id'] = $user->id;
-                    FormateurProfile::create($profileData);
+                    $profile = FormateurProfile::create($profileData);
+                    // Synchroniser les organisations
+                    $profile->organizations()->sync($this->selectedOrganizations ?? []);
                 }
             }
         } else {
@@ -311,20 +333,21 @@ class UserManagement extends Component
 
                 // Synchroniser les organisations du référent
                 if ($this->isReferentPedagogique) {
-                    $user->referentOrganizations()->sync($this->selectedOrganizations ?? []);
+                    $user->referentOrganizations()->sync($this->selectedReferentOrganizations ?? []);
                 }
             }
 
             // Créer le profil formateur si c'est un formateur
             if ($this->role === 'formateur') {
-                FormateurProfile::create([
+                $profile = FormateurProfile::create([
                     'user_id' => $user->id,
                     'phone_country_code' => $this->phoneCountryCode ?: null,
                     'phone_number' => $this->phoneNumber ?: null,
                     'country' => $this->country ?: null,
-                    'organization_id' => $this->organizationId ?: null,
                     'training_type' => $this->trainingType ?: null,
                 ]);
+                // Synchroniser les organisations
+                $profile->organizations()->sync($this->selectedOrganizations ?? []);
             }
         }
 
@@ -376,21 +399,50 @@ class UserManagement extends Component
 
         // Appliquer les filtres dynamiques
         if ($this->filterCountry) {
-            $query->whereHas('formateurProfile', function ($q) {
-                $q->where('country', $this->filterCountry);
-            });
+            if ($roleName === 'formateur') {
+                $query->whereHas('formateurProfile', function ($q) {
+                    $q->where('country', $this->filterCountry);
+                });
+            } elseif ($roleName === 'admin') {
+                $query->where('country', $this->filterCountry);
+            }
         }
 
         if ($this->filterOrganization) {
-            $query->whereHas('formateurProfile', function ($q) {
-                $q->where('organization_id', $this->filterOrganization);
-            });
+            if ($roleName === 'formateur') {
+                $query->whereHas('formateurProfile.organizations', function ($q) {
+                    $q->where('organizations.id', $this->filterOrganization);
+                });
+            } elseif ($roleName === 'admin') {
+                $query->whereHas('referentOrganizations', function ($q) {
+                    $q->where('organizations.id', $this->filterOrganization);
+                });
+            }
         }
 
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('name', 'like', '%'.$this->search.'%')
-                    ->orWhere('email', 'like', '%'.$this->search.'%');
+            $query->where(function ($q) use ($roleName) {
+                $q->where('first_name', 'like', '%'.$this->search.'%')
+                    ->orWhere('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('email', 'like', '%'.$this->search.'%')
+                    ->orWhere('country', 'like', '%'.$this->search.'%'); // Pour les administrateurs
+
+                // Recherche dans le profil formateur (pays et organisations)
+                if ($roleName === 'formateur') {
+                    $q->orWhereHas('formateurProfile', function ($profileQ) {
+                        $profileQ->where('country', 'like', '%'.$this->search.'%')
+                            ->orWhereHas('organizations', function ($orgQ) {
+                                $orgQ->where('name', 'like', '%'.$this->search.'%');
+                            });
+                    });
+                }
+
+                // Recherche dans les organisations du référent (pour les administrateurs)
+                if ($roleName === 'admin') {
+                    $q->orWhereHas('referentOrganizations', function ($orgQ) {
+                        $orgQ->where('name', 'like', '%'.$this->search.'%');
+                    });
+                }
             });
         }
 
@@ -401,9 +453,26 @@ class UserManagement extends Component
             $users->load('referentOrganizations');
         }
 
+        // Filtrer les organisations selon le référent pédagogique
+        $organizations = Organization::orderBy('name')->get();
+        if (Auth::check() && $this->activeTab === 'formateurs') {
+            /** @var User $currentUser */
+            $currentUser = Auth::user();
+            if ($currentUser->isReferentPedagogique() && ! $this->isSuperAdmin()) {
+                // Ne montrer que les organisations assignées au référent pédagogique
+                $referentOrganizations = $currentUser->referentOrganizations()->pluck('organizations.id')->toArray();
+                if (! empty($referentOrganizations)) {
+                    $organizations = Organization::whereIn('id', $referentOrganizations)->orderBy('name')->get();
+                } else {
+                    // Si le référent n'a pas d'organisations assignées, ne pas afficher d'organisations
+                    $organizations = collect([]);
+                }
+            }
+        }
+
         return view('livewire.admin.user-management', [
             'users' => $users,
-            'organizations' => Organization::orderBy('name')->get(),
+            'organizations' => $organizations,
             'countries' => CountriesData::getCountries(),
             'phoneCountryCodes' => CountriesData::getPhoneCountryCodes(),
         ]);

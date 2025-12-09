@@ -182,13 +182,15 @@ class User extends Authenticatable
         $referentOrganizations = $this->referentOrganizations()->pluck('organizations.id')->toArray();
 
         if (! empty($referentOrganizations)) {
-            // Si le formateur n'a pas d'organisation, il n'est pas géré par ce référent
-            if (empty($formateurProfile->organization_id)) {
+            // Si le formateur n'a pas d'organisations, il n'est pas géré par ce référent
+            $formateurOrganizations = $formateurProfile->organizations()->pluck('organizations.id')->toArray();
+            if (empty($formateurOrganizations)) {
                 return false;
             }
 
-            // Vérifier que l'organisation du formateur est dans la liste du référent
-            if (! in_array($formateurProfile->organization_id, $referentOrganizations)) {
+            // Vérifier qu'au moins une organisation du formateur est dans la liste du référent
+            $commonOrganizations = array_intersect($formateurOrganizations, $referentOrganizations);
+            if (empty($commonOrganizations)) {
                 return false;
             }
         }
@@ -208,14 +210,29 @@ class User extends Authenticatable
         }
 
         // SEULEMENT pour les référents pédagogiques → appliquer le filtre
-        $query->whereHas('formateurProfile', function ($q) use ($referent) {
-            $q->where('country', $referent->country);
+        $referentOrganizations = $referent->referentOrganizations()->pluck('organizations.id')->toArray();
 
-            $referentOrganizations = $referent->referentOrganizations()->pluck('organizations.id')->toArray();
-            if (! empty($referentOrganizations)) {
-                $q->whereIn('organization_id', $referentOrganizations);
-            }
-        });
+        if (! empty($referentOrganizations)) {
+            // Si le référent a des organisations assignées, afficher les formateurs qui :
+            // - Sont du même pays
+            // - ET (ont au moins une organisation dans la liste du référent OU n'ont aucune organisation)
+            $query->whereHas('formateurProfile', function ($q) use ($referent, $referentOrganizations) {
+                $q->where('country', $referent->country)
+                    ->where(function ($subQ) use ($referentOrganizations) {
+                        // Soit le formateur a au moins une organisation dans la liste du référent
+                        $subQ->whereHas('organizations', function ($orgQ) use ($referentOrganizations) {
+                            $orgQ->whereIn('organizations.id', $referentOrganizations);
+                        })
+                        // Soit le formateur n'a aucune organisation
+                            ->orDoesntHave('organizations');
+                    });
+            });
+        } else {
+            // Si le référent n'a pas d'organisations assignées, afficher tous les formateurs du même pays
+            $query->whereHas('formateurProfile', function ($q) use ($referent) {
+                $q->where('country', $referent->country);
+            });
+        }
     }
 
     /**
