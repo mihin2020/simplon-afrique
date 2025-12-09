@@ -11,6 +11,8 @@ use App\Http\Controllers\Admin\JuryController;
 use App\Http\Controllers\Admin\JuryManagementController;
 use App\Http\Controllers\Admin\LabellisationSettingsController;
 use App\Http\Controllers\Admin\OrganizationController;
+use App\Http\Controllers\Admin\PromotionController;
+use App\Http\Controllers\Admin\PromotionNoteController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Auth\ActivationController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
@@ -103,6 +105,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/evaluation/{candidature}', [JuryController::class, 'saveEvaluation'])->name('evaluation.save');
             Route::post('/president-validate/{candidature}', [JuryController::class, 'presidentValidate'])->name('president-validate');
         });
+
+        // Routes Mes Notes - Administrateurs uniquement
+        Route::get('/my-notes', [PromotionNoteController::class, 'myNotes'])->name('my-notes');
     });
 
     // Routes Super Admin uniquement
@@ -121,6 +126,19 @@ Route::middleware('auth')->group(function () {
         Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations');
         Route::get('/labellisation-settings', [LabellisationSettingsController::class, 'index'])->name('labellisation-settings');
         Route::get('/badge-attestation-settings', [BadgeAttestationSettingsController::class, 'index'])->name('badge-attestation-settings');
+
+        // Routes Promotions - Super Admin uniquement
+        Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions');
+        Route::get('/promotions/create', [PromotionController::class, 'create'])->name('promotions.create');
+        Route::post('/promotions', [PromotionController::class, 'store'])->name('promotions.store');
+        Route::get('/promotions/{promotion}/edit', [PromotionController::class, 'edit'])->name('promotions.edit');
+        Route::put('/promotions/{promotion}', [PromotionController::class, 'update'])->name('promotions.update');
+        Route::delete('/promotions/{promotion}', [PromotionController::class, 'destroy'])->name('promotions.destroy');
+
+        // Routes Suivi - Super Admin uniquement
+        Route::get('/follow-up', [PromotionNoteController::class, 'index'])->name('follow-up');
+        Route::get('/follow-up/{admin}/notes', [PromotionNoteController::class, 'show'])->name('follow-up.show');
+        Route::post('/follow-up/{admin}/notes', [PromotionNoteController::class, 'store'])->name('follow-up.store');
 
         // Routes Offres d'emploi - Super Admin
         Route::get('/job-offers', [JobOfferController::class, 'index'])->name('job-offers');

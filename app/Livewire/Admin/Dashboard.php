@@ -5,7 +5,6 @@ namespace App\Livewire\Admin;
 use App\Models\Badge;
 use App\Models\Candidature;
 use App\Models\Jury;
-use App\Models\LabellisationStep;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
@@ -50,24 +49,6 @@ class Dashboard extends Component
                 'name' => $badge->label,
                 'count' => $badge->candidatures_count,
                 'percentage' => $totalBadges > 0 ? round(($badge->candidatures_count / $totalBadges) * 100, 1) : 0,
-            ];
-        });
-
-        // Dossiers en cours par étape
-        $steps = LabellisationStep::orderBy('display_order')->get();
-        $dossiersParEtape = $steps->map(function ($step) use ($currentUser) {
-            $query = Candidature::where('current_step_id', $step->id)
-                ->whereIn('status', ['submitted', 'in_review']);
-
-            if ($currentUser) {
-                $query->forReferent($currentUser);
-            }
-
-            $count = $query->count();
-
-            return [
-                'step' => $step,
-                'count' => $count,
             ];
         });
 
@@ -129,7 +110,6 @@ class Dashboard extends Component
             'totalFormateurs' => $totalFormateurs,
             'badgeDistribution' => $badgeDistribution,
             'totalBadges' => $totalBadges,
-            'dossiersParEtape' => $dossiersParEtape,
             'totalDossiersEnCours' => $totalDossiersEnCours,
             'jurysConstitués' => $jurysConstitués,
             'totalJurys' => $totalJurys,

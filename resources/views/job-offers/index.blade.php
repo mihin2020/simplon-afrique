@@ -20,3 +20,4 @@
     @livewire('job-offers-list')
 @endsection
 
+

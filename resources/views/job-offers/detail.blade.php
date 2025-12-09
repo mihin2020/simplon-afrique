@@ -29,3 +29,4 @@
     @livewire('job-offers-list', ['selectedOfferId' => $jobOffer->id])
 @endsection
 
+

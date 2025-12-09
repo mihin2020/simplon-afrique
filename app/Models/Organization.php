@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Organization extends Model
 {
     use HasFactory, HasUuids;
+
+    /**
+     * Create a new factory instance for the model.
+     */
+    protected static function newFactory(): OrganizationFactory
+    {
+        return OrganizationFactory::new();
+    }
 
     /**
      * The "type" of the primary key ID.
@@ -49,5 +58,13 @@ class Organization extends Model
     public function referents(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'referent_organizations')->withTimestamps();
+    }
+
+    /**
+     * Get all promotions associated with this organization.
+     */
+    public function promotions(): BelongsToMany
+    {
+        return $this->belongsToMany(Promotion::class, 'promotion_organization')->withTimestamps();
     }
 }

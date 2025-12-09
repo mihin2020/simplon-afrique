@@ -12,3 +12,4 @@ class CandidatureManagementController extends Controller
         return view('admin.candidatures');
     }
 }
+

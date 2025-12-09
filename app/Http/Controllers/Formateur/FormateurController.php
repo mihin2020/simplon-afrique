@@ -27,3 +27,4 @@ class FormateurController extends Controller
         return view('formateur.my-candidatures');
     }
 }
+

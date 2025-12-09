@@ -24,3 +24,4 @@ class UserManagementController extends Controller
         return view('admin.user-management');
     }
 }
+

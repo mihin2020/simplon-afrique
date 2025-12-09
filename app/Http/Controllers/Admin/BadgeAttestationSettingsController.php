@@ -12,3 +12,4 @@ class BadgeAttestationSettingsController extends Controller
         return view('admin.badge-attestation-settings');
     }
 }
+

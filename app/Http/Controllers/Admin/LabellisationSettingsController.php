@@ -12,3 +12,4 @@ class LabellisationSettingsController extends Controller
         return view('admin.labellisation-settings');
     }
 }
+

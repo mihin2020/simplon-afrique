@@ -12,3 +12,4 @@
     @livewire('admin.job-offer-form', ['jobOfferId' => $jobOfferId ?? null])
 @endsection
 
+

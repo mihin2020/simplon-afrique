@@ -12,3 +12,4 @@
     @livewire('admin.job-offers-management')
 @endsection
 
+

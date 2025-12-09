@@ -62,9 +62,9 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Répartition des Badges -->
-        <div class="lg:col-span-1 bg-white rounded-xl shadow-sm p-6">
+        <div class="bg-white rounded-xl shadow-sm p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Répartition des Badges</h3>
             <div class="space-y-4">
                 @foreach($badgeDistribution as $badge)
@@ -93,41 +93,8 @@
             </div>
         </div>
 
-        <!-- Statut des Dossiers en Cours -->
-        <div class="lg:col-span-1 bg-white rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Statut des Dossiers en Cours</h3>
-            <div class="space-y-4">
-                @foreach($dossiersParEtape as $item)
-                    @php
-                        $step = $item['step'];
-                        $count = $item['count'];
-                        $maxCount = $dossiersParEtape->max('count');
-                        $percentage = $maxCount > 0 ? ($count / $maxCount) * 100 : 0;
-                    @endphp
-<div>
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-sm font-medium text-gray-700">{{ $step->label }}</span>
-                            <span class="text-sm font-semibold text-gray-900">{{ $count }}</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                                class="h-2 rounded-full 
-                                @if($step->name === 'candidature') bg-blue-500
-                                @elseif($step->name === 'technique') bg-yellow-500
-                                @elseif($step->name === 'pedagogique') bg-green-500
-                                @elseif($step->name === 'entretien_evaluation') bg-purple-500
-                                @else bg-red-500
-                                @endif"
-                                style="width: {{ $percentage }}%"
-                            ></div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
         <!-- Alertes et Tâches en Attente -->
-        <div class="lg:col-span-1 space-y-4">
+        <div class="space-y-4">
             @if($nouveauxFormateurs > 0)
                 <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
                     <div class="flex items-start gap-3">

@@ -12,3 +12,4 @@ class OrganizationController extends Controller
         return view('admin.organizations');
     }
 }
+

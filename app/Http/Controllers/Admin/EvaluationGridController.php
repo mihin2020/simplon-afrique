@@ -23,3 +23,4 @@ class EvaluationGridController extends Controller
         return view('admin.evaluation-grid', ['gridId' => $grid->id]);
     }
 }
+

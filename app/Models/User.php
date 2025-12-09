@@ -112,6 +112,38 @@ class User extends Authenticatable
     }
 
     /**
+     * Get all promotions where this user is the assigned admin.
+     */
+    public function promotions(): HasMany
+    {
+        return $this->hasMany(Promotion::class, 'admin_id');
+    }
+
+    /**
+     * Get all promotions created by this user.
+     */
+    public function createdPromotions(): HasMany
+    {
+        return $this->hasMany(Promotion::class, 'created_by');
+    }
+
+    /**
+     * Get all promotion notes about this user (as admin).
+     */
+    public function promotionNotes(): HasMany
+    {
+        return $this->hasMany(PromotionNote::class, 'admin_id');
+    }
+
+    /**
+     * Get all promotion notes created by this user.
+     */
+    public function createdPromotionNotes(): HasMany
+    {
+        return $this->hasMany(PromotionNote::class, 'created_by');
+    }
+
+    /**
      * Check if user has a specific role.
      */
     public function hasRole(string $roleName): bool
