@@ -13,3 +13,4 @@ class BadgeAttestationSettingsController extends Controller
     }
 }
 
+

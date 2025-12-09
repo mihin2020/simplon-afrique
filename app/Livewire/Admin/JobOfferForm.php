@@ -211,7 +211,7 @@ class JobOfferForm extends Component
 
     /**
      * Envoyer les emails de notification de publication (sans queue).
-     * Optimisé pour envoyer à tous les destinataires en une seule requête SMTP.
+     * Les utilisateurs sont divisés en lots de 25 pour éviter de surcharger le serveur SMTP.
      */
     protected function sendPublicationEmails(JobOffer $offer): void
     {
@@ -219,36 +219,49 @@ class JobOfferForm extends Component
         $roleNames = ['admin', 'formateur'];
         $roleIds = Role::whereIn('name', $roleNames)->pluck('id');
 
-        // Récupérer tous les utilisateurs avec ces rôles
+        // Récupérer tous les utilisateurs avec ces rôles, SAUF le créateur
+        $currentUserId = Auth::id();
+
         $recipients = User::whereHas('roles', function ($query) use ($roleIds) {
             $query->whereIn('roles.id', $roleIds);
-        })->pluck('email')->toArray();
+        })
+            ->where('id', '!=', $currentUserId) // Exclure le créateur
+            ->get();
 
-        if (empty($recipients)) {
+        if ($recipients->isEmpty()) {
             return;
         }
 
         $applyUrl = route('job-offers.detail', $offer);
+        $mail = new JobOfferPublishedMail($offer, $applyUrl);
 
-        // Envoi optimisé : utiliser le premier destinataire en "to" et les autres en BCC
-        // Cela permet d'envoyer un seul email au serveur SMTP au lieu de N emails
-        $primaryRecipient = array_shift($recipients);
+        // Diviser les utilisateurs en lots de 25
+        $chunks = $recipients->chunk(25);
 
-        try {
-            $mail = new JobOfferPublishedMail($offer, $applyUrl);
+        foreach ($chunks as $chunk) {
+            // Pour chaque lot, envoyer les emails
+            // Utiliser BCC pour optimiser l'envoi SMTP
+            $emails = $chunk->pluck('email')->toArray();
 
-            if (! empty($recipients)) {
-                // Si plusieurs destinataires, utiliser BCC pour les autres
-                Mail::to($primaryRecipient)
-                    ->bcc($recipients)
-                    ->send($mail);
-            } else {
+            if (count($emails) === 1) {
                 // Un seul destinataire
-                Mail::to($primaryRecipient)->send($mail);
+                try {
+                    Mail::to($emails[0])->send($mail);
+                } catch (\Exception $e) {
+                    report($e);
+                }
+            } else {
+                // Plusieurs destinataires : utiliser le premier en "to" et les autres en BCC
+                $primaryRecipient = array_shift($emails);
+
+                try {
+                    Mail::to($primaryRecipient)
+                        ->bcc($emails)
+                        ->send($mail);
+                } catch (\Exception $e) {
+                    report($e);
+                }
             }
-        } catch (\Exception $e) {
-            // Log l'erreur mais ne bloque pas la publication
-            report($e);
         }
     }
 

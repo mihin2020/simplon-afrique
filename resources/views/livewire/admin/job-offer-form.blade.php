@@ -355,22 +355,36 @@
             <button
                 type="button"
                 wire:click="saveDraft"
-                class="px-6 py-3 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition disabled:opacity-50"
+                class="px-6 py-3 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 wire:loading.attr="disabled"
             >
-                <span wire:loading.remove wire:target="saveDraft">Enregistrer en brouillon</span>
-                <span wire:loading wire:target="saveDraft">Enregistrement...</span>
+                <span wire:loading.remove wire:target="saveDraft" class="flex items-center gap-2">
+                    Enregistrer en brouillon
+                </span>
+                <span wire:loading wire:target="saveDraft" class="flex items-center gap-2">
+                    <svg class="animate-spin h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Enregistrement...
+                </span>
             </button>
             <button
                 type="button"
                 wire:click="publish"
-                class="px-6 py-3 text-white bg-red-600 rounded-lg hover:bg-red-700 transition disabled:opacity-50"
+                class="px-6 py-3 text-white bg-red-600 rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 wire:loading.attr="disabled"
             >
-                <span wire:loading.remove wire:target="publish">
+                <span wire:loading.remove wire:target="publish" class="flex items-center gap-2">
                     {{ $isEditing && $jobOffer?->isPublished() ? 'Mettre à jour' : 'Publier l\'offre' }}
                 </span>
-                <span wire:loading wire:target="publish">Publication...</span>
+                <span wire:loading wire:target="publish" class="flex items-center gap-2">
+                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Publication en cours...
+                </span>
             </button>
         </div>
     </div>

@@ -13,3 +13,4 @@ class CandidatureManagementController extends Controller
     }
 }
 
+

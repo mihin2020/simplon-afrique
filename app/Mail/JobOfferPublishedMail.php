@@ -32,8 +32,18 @@ class JobOfferPublishedMail extends Mailable
      */
     public function content(): Content
     {
+        // URL du logo Simplon (absolue pour les emails)
+        $baseUrl = \Illuminate\Support\Facades\URL::to('/');
+        if (! str_starts_with($baseUrl, 'http')) {
+            $baseUrl = config('app.url');
+        }
+        $logoUrl = rtrim($baseUrl, '/').'/images/simplon-logo.jpg';
+
         return new Content(
-            markdown: 'emails.job-offer-published',
+            view: 'emails.job-offer-published',
+            with: [
+                'logoUrl' => $logoUrl,
+            ],
         );
     }
 
