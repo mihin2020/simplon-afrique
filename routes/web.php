@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CandidatureDocumentController;
 use App\Http\Controllers\Admin\CandidatureManagementController;
 use App\Http\Controllers\Admin\CertificationController;
 use App\Http\Controllers\Admin\EvaluationGridController;
+use App\Http\Controllers\Admin\JobOfferController;
 use App\Http\Controllers\Admin\JuryController;
 use App\Http\Controllers\Admin\JuryManagementController;
 use App\Http\Controllers\Admin\LabellisationSettingsController;
@@ -68,7 +69,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/attestation/{candidature}/download', [AttestationController::class, 'download'])
             ->name('attestation.download');
-        
+
         Route::get('/badge/{candidature}/download', [AttestationController::class, 'downloadBadge'])
             ->name('badge.download');
     });
@@ -120,6 +121,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations');
         Route::get('/labellisation-settings', [LabellisationSettingsController::class, 'index'])->name('labellisation-settings');
         Route::get('/badge-attestation-settings', [BadgeAttestationSettingsController::class, 'index'])->name('badge-attestation-settings');
+
+        // Routes Offres d'emploi - Super Admin
+        Route::get('/job-offers', [JobOfferController::class, 'index'])->name('job-offers');
+        Route::get('/job-offers/create', [JobOfferController::class, 'create'])->name('job-offers.create');
+        Route::get('/job-offers/{jobOffer}', [JobOfferController::class, 'show'])->name('job-offers.show');
+        Route::get('/job-offers/{jobOffer}/edit', [JobOfferController::class, 'edit'])->name('job-offers.edit');
+        Route::get('/job-offers/{jobOffer}/attachment', [JobOfferController::class, 'downloadAttachment'])->name('job-offers.attachment');
+        Route::get('/job-application/{application}', [JobOfferController::class, 'showApplication'])->name('job-application.show');
+        Route::get('/job-application/{application}/cv', [JobOfferController::class, 'downloadApplicationCv'])->name('job-application.cv');
     });
 
     // Routes Jury
@@ -128,5 +138,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/evaluate/{candidature}/{step}', [JuryMemberController::class, 'evaluateStep'])->name('evaluate-step');
         Route::get('/candidature/{candidature}/validate', [JuryMemberController::class, 'presidentValidation'])->name('president-validation');
         Route::get('/candidature/{candidature}/view', [JuryMemberController::class, 'viewEvaluations'])->name('view-evaluations');
+    });
+
+    // Routes Offres d'emploi - Accessibles uniquement aux admins et formateurs (pas au super_admin)
+    Route::middleware('role:admin,formateur')->group(function () {
+        Route::get('/job-offers', [JobOfferController::class, 'publicIndex'])->name('job-offers.index');
+        Route::get('/job-offers/{jobOffer}', [JobOfferController::class, 'publicShow'])->name('job-offers.detail');
     });
 });

@@ -3,12 +3,33 @@
 namespace App\Livewire\Formateur;
 
 use App\Models\Evaluation;
+use App\Models\JobApplication;
+use App\Models\JobOffer;
 use App\Models\Jury;
 use App\Services\EvaluationCalculationService;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class Dashboard extends Component
 {
+    use WithPagination;
+
+    protected $paginationTheme = 'tailwind';
+
+    public string $jobOfferContractFilter = '';
+
+    public string $jobOfferRemoteFilter = '';
+
+    public function updatingJobOfferContractFilter(): void
+    {
+        $this->resetPage('jobOffersPage');
+    }
+
+    public function updatingJobOfferRemoteFilter(): void
+    {
+        $this->resetPage('jobOffersPage');
+    }
+
     public function render()
     {
         $user = auth()->user();
@@ -229,6 +250,26 @@ class Dashboard extends Component
             $finalScore = $calculationService->calculateFinalScore($candidature);
         }
 
+        // Récupérer les offres d'emploi actives
+        $jobOffersQuery = JobOffer::active()
+            ->latest('published_at');
+
+        // Appliquer les filtres
+        if ($this->jobOfferContractFilter) {
+            $jobOffersQuery->where('contract_type', $this->jobOfferContractFilter);
+        }
+
+        if ($this->jobOfferRemoteFilter) {
+            $jobOffersQuery->where('remote_policy', $this->jobOfferRemoteFilter);
+        }
+
+        $jobOffers = $jobOffersQuery->paginate(6, pageName: 'jobOffersPage');
+
+        // Récupérer les IDs des offres auxquelles l'utilisateur a déjà postulé
+        $appliedOfferIds = JobApplication::where('user_id', $user->id)
+            ->pluck('job_offer_id')
+            ->toArray();
+
         return view('livewire.formateur.dashboard', [
             'candidature' => $candidature,
             'isCertified' => $isCertified,
@@ -237,6 +278,8 @@ class Dashboard extends Component
             'stepsWithStatus' => $stepsWithStatus,
             'finalScore' => $finalScore,
             'jury' => $jury,
+            'jobOffers' => $jobOffers,
+            'appliedOfferIds' => $appliedOfferIds,
         ]);
     }
 

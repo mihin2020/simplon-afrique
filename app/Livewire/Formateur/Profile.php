@@ -75,14 +75,22 @@ class Profile extends Component
             $this->portfolioUrl = $profile->portfolio_url;
             $this->photoPreview = $profile->photo_path ? Storage::url($profile->photo_path) : null;
             // Extraire le nom original du fichier
-            // Format stocké: nom_original__hash.extension
             if ($profile->cv_path) {
                 $filename = basename($profile->cv_path);
-                // Si le format contient __ (double underscore), extraire le nom original
-                if (strpos($filename, '__') !== false) {
+                $extension = pathinfo($filename, PATHINFO_EXTENSION);
+                
+                // Gérer le format avec triple underscore (___)
+                if (strpos($filename, '___') !== false) {
+                    $parts = explode('___', $filename);
+                    // Prendre tout sauf la dernière partie (le hash) et ajouter l'extension
+                    $nameWithoutHash = implode('___', array_slice($parts, 0, -1));
+                    $this->cvPreview = $nameWithoutHash.'.'.$extension;
+                }
+                // Gérer le format avec double underscore (__)
+                elseif (strpos($filename, '__') !== false) {
                     $parts = explode('__', $filename);
-                    $extension = pathinfo($filename, PATHINFO_EXTENSION);
-                    $this->cvPreview = $parts[0].'.'.$extension;
+                    $nameWithoutHash = $parts[0];
+                    $this->cvPreview = $nameWithoutHash.'.'.$extension;
                 } else {
                     // Ancien format (hash aléatoire), afficher tel quel
                     $this->cvPreview = $filename;

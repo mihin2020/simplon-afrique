@@ -692,12 +692,23 @@
                                             @if($viewingUser->formateurProfile?->cv_path)
                                                 @php
                                                     $cvFilename = basename($viewingUser->formateurProfile->cv_path);
-                                                    // Format: nom_original__hash.extension
-                                                    if (strpos($cvFilename, '__') !== false) {
+                                                    $extension = pathinfo($cvFilename, PATHINFO_EXTENSION);
+                                                    
+                                                    // Gérer le format avec triple underscore (___)
+                                                    if (strpos($cvFilename, '___') !== false) {
+                                                        $parts = explode('___', $cvFilename);
+                                                        // Prendre tout sauf la dernière partie (le hash) et ajouter l'extension
+                                                        $nameWithoutHash = implode('___', array_slice($parts, 0, -1));
+                                                        $cvDisplayName = $nameWithoutHash . '.' . $extension;
+                                                    }
+                                                    // Gérer le format avec double underscore (__)
+                                                    elseif (strpos($cvFilename, '__') !== false) {
                                                         $parts = explode('__', $cvFilename);
-                                                        $extension = pathinfo($cvFilename, PATHINFO_EXTENSION);
-                                                        $cvDisplayName = $parts[0] . '.' . $extension;
-                                                    } else {
+                                                        $nameWithoutHash = $parts[0];
+                                                        $cvDisplayName = $nameWithoutHash . '.' . $extension;
+                                                    }
+                                                    // Format sans underscore (ancien format)
+                                                    else {
                                                         $cvDisplayName = $cvFilename;
                                                     }
                                                 @endphp

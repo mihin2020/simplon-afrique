@@ -90,8 +90,25 @@
                         @if($hasCv)
                             @php
                                 $cvFilename = basename($userProfile->cv_path);
-                                // Extraire le nom original (retirer le timestamp)
-                                $cvDisplayName = preg_match('/^\d+_(.+)$/', $cvFilename, $matches) ? $matches[1] : $cvFilename;
+                                $extension = pathinfo($cvFilename, PATHINFO_EXTENSION);
+                                
+                                // Gérer le format avec triple underscore (___)
+                                if (strpos($cvFilename, '___') !== false) {
+                                    $parts = explode('___', $cvFilename);
+                                    // Prendre tout sauf la dernière partie (le hash) et ajouter l'extension
+                                    $nameWithoutHash = implode('___', array_slice($parts, 0, -1));
+                                    $cvDisplayName = $nameWithoutHash . '.' . $extension;
+                                }
+                                // Gérer le format avec double underscore (__)
+                                elseif (strpos($cvFilename, '__') !== false) {
+                                    $parts = explode('__', $cvFilename);
+                                    $nameWithoutHash = $parts[0];
+                                    $cvDisplayName = $nameWithoutHash . '.' . $extension;
+                                }
+                                // Format sans underscore (ancien format)
+                                else {
+                                    $cvDisplayName = $cvFilename;
+                                }
                             @endphp
                             <div class="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
                                 <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

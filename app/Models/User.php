@@ -86,6 +86,54 @@ class User extends Authenticatable
     }
 
     /**
+     * Get all job offers created by this user (super admin).
+     */
+    public function createdJobOffers(): HasMany
+    {
+        return $this->hasMany(JobOffer::class, 'created_by');
+    }
+
+    /**
+     * Get all job applications submitted by this user.
+     */
+    public function jobApplications(): HasMany
+    {
+        return $this->hasMany(JobApplication::class);
+    }
+
+    /**
+     * Check if user has a specific role.
+     */
+    public function hasRole(string $roleName): bool
+    {
+        return $this->roles()->where('name', $roleName)->exists();
+    }
+
+    /**
+     * Check if user is a super admin.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
+
+    /**
+     * Check if user is an admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
+    }
+
+    /**
+     * Check if user is a formateur.
+     */
+    public function isFormateur(): bool
+    {
+        return $this->hasRole('formateur');
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
