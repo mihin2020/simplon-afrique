@@ -49,7 +49,6 @@ class JuryDetail extends Component
             'candidatures.user',
             'candidatures.badge',
             'members.user.roles',
-            'evaluationGrid.categories.labellisationStep',
             'evaluationGrid.categories.criteria',
         ]);
 

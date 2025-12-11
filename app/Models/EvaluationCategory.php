@@ -20,7 +20,6 @@ class EvaluationCategory extends Model
      */
     protected $fillable = [
         'evaluation_grid_id',
-        'labellisation_step_id',
         'name',
         'description',
         'display_order',
@@ -31,23 +30,8 @@ class EvaluationCategory extends Model
         return $this->belongsTo(EvaluationGrid::class, 'evaluation_grid_id');
     }
 
-    public function labellisationStep(): BelongsTo
-    {
-        return $this->belongsTo(LabellisationStep::class);
-    }
-
     public function criteria(): HasMany
     {
         return $this->hasMany(EvaluationCriterion::class, 'evaluation_category_id');
-    }
-
-    public function isLinkedToStep(): bool
-    {
-        return $this->labellisation_step_id !== null;
-    }
-
-    public function scopeForStep($query, string $stepId)
-    {
-        return $query->where('labellisation_step_id', $stepId);
     }
 }

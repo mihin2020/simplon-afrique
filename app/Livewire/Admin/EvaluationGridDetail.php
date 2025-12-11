@@ -5,7 +5,6 @@ namespace App\Livewire\Admin;
 use App\Models\EvaluationCategory;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationGrid;
-use App\Models\LabellisationStep;
 use Livewire\Component;
 
 class EvaluationGridDetail extends Component
@@ -23,8 +22,6 @@ class EvaluationGridDetail extends Component
 
     public $categoryDescription = '';
 
-    public $categoryStepId = null;
-
     // Criterion form fields
     public $showCriterionModal = false;
 
@@ -41,7 +38,6 @@ class EvaluationGridDetail extends Component
     protected $rules = [
         'categoryName' => ['required', 'string', 'max:255'],
         'categoryDescription' => ['nullable', 'string'],
-        'categoryStepId' => ['required', 'exists:labellisation_steps,id'],
         'criterionName' => ['required', 'string', 'max:255'],
         'criterionDescription' => ['nullable', 'string'],
         'criterionWeight' => ['required', 'numeric', 'min:0', 'max:100'],
@@ -49,8 +45,6 @@ class EvaluationGridDetail extends Component
 
     protected $messages = [
         'categoryName.required' => 'Le nom de la catégorie est obligatoire.',
-        'categoryStepId.required' => 'L\'étape de labellisation est obligatoire.',
-        'categoryStepId.exists' => 'L\'étape de labellisation sélectionnée n\'existe pas.',
         'criterionName.required' => 'Le nom du critère est obligatoire.',
         'criterionWeight.required' => 'Le poids est obligatoire.',
         'criterionWeight.numeric' => 'Le poids doit être un nombre.',
@@ -70,7 +64,6 @@ class EvaluationGridDetail extends Component
             'categories' => function ($query) {
                 $query->orderBy('display_order');
             },
-            'categories.labellisationStep',
             'categories.criteria' => function ($query) {
                 $query->orderBy('display_order');
             },
@@ -85,7 +78,6 @@ class EvaluationGridDetail extends Component
             $category = EvaluationCategory::findOrFail($categoryId);
             $this->categoryName = $category->name;
             $this->categoryDescription = $category->description;
-            $this->categoryStepId = $category->labellisation_step_id;
         } else {
             $this->resetCategoryForm();
         }
@@ -103,21 +95,20 @@ class EvaluationGridDetail extends Component
         $this->categoryId = null;
         $this->categoryName = '';
         $this->categoryDescription = '';
-        $this->categoryStepId = null;
     }
 
     public function saveCategory(): void
     {
-        $this->validateOnly('categoryName');
-        $this->validateOnly('categoryDescription');
-        $this->validateOnly('categoryStepId');
+        $this->validate([
+            'categoryName' => ['required', 'string', 'max:255'],
+            'categoryDescription' => ['nullable', 'string'],
+        ]);
 
         if ($this->categoryId) {
             $category = EvaluationCategory::findOrFail($this->categoryId);
             $category->update([
                 'name' => $this->categoryName,
                 'description' => $this->categoryDescription,
-                'labellisation_step_id' => $this->categoryStepId,
             ]);
             session()->flash('success', 'La catégorie a été modifiée avec succès.');
         } else {
@@ -126,7 +117,6 @@ class EvaluationGridDetail extends Component
                 'evaluation_grid_id' => $this->gridId,
                 'name' => $this->categoryName,
                 'description' => $this->categoryDescription,
-                'labellisation_step_id' => $this->categoryStepId,
                 'display_order' => $maxOrder + 1,
             ]);
             session()->flash('success', 'La catégorie a été créée avec succès.');
@@ -404,14 +394,11 @@ class EvaluationGridDetail extends Component
 
     public function render()
     {
-        $labellisationSteps = LabellisationStep::orderBy('display_order')->get();
-
         if (! $this->grid) {
             return view('livewire.admin.evaluation-grid-detail', [
                 'grid' => null,
                 'incompleteCategories' => [],
                 'isGridValid' => false,
-                'labellisationSteps' => $labellisationSteps,
             ]);
         }
 
@@ -419,7 +406,6 @@ class EvaluationGridDetail extends Component
             'grid' => $this->grid,
             'incompleteCategories' => $this->incompleteCategories,
             'isGridValid' => $this->isGridValid(),
-            'labellisationSteps' => $labellisationSteps,
         ]);
     }
 }

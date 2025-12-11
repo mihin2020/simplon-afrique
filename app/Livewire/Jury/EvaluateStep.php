@@ -141,9 +141,8 @@ class EvaluateStep extends Component
             return collect();
         }
 
-        // Charger les catégories avec leurs critères pour l'étape courante
+        // Charger toutes les catégories avec leurs critères (sans filtre par étape)
         $categories = $grid->categories()
-            ->where('labellisation_step_id', $this->step->id)
             ->with(['criteria' => function ($query) {
                 $query->orderBy('display_order');
             }])

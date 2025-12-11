@@ -301,7 +301,7 @@ class JuryController extends Controller
 
         // Récupérer toutes les catégories avec leurs critères
         $allCategories = $jury->evaluationGrid->categories()
-            ->with(['criteria', 'labellisationStep'])
+            ->with(['criteria'])
             ->get();
 
         DB::transaction(function () use ($jury, $candidature, $juryMember, $allCategories, $calculationService, $scores, $weightedScores, $comments) {

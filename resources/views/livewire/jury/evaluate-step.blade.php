@@ -124,7 +124,6 @@
                                             <li>Étape courante : <strong>{{ $step->label }}</strong> (ID: {{ $step->id }})</li>
                                             <li>Grille : <strong>{{ $grid->name }}</strong> (ID: {{ $grid->id }})</li>
                                             <li>Total de catégories dans la grille : <strong>{{ $grid->categories()->count() }}</strong></li>
-                                            <li>Catégories pour cette étape : <strong>{{ $grid->categories()->where('labellisation_step_id', $step->id)->count() }}</strong></li>
                                         </ul>
                                     </div>
                                 @endif
