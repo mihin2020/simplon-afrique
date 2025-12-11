@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            //
+            $table->boolean('is_referent_pedagogique')->default(false)->after('password');
+            $table->string('country')->nullable()->after('is_referent_pedagogique');
         });
     }
 
@@ -22,7 +23,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            //
+            $table->dropColumn(['is_referent_pedagogique', 'country']);
         });
     }
 };

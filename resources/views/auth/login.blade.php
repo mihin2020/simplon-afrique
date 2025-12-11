@@ -11,8 +11,13 @@
 <body class="min-h-screen bg-gray-50 flex">
     <!-- Colonne image -->
     <div class="hidden lg:flex w-1/2 relative min-h-screen">
-        <img
+        <!-- <img
             src="https://images.pexels.com/photos/1181352/pexels-photo-1181352.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+            alt="Formateurs en collaboration"
+            class="w-full h-full object-cover"
+        > -->
+        <img
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfX7TCztwyFFX3dNhY1Vji1IZzKMBEsgvLLJCaeKWiKbHr4f0M6DKjgq-lJcUOG8XdzGSFGJ0R5pHZt6lPxXnzJkjJ-AKLOYa5uTyxx4c653RR8tVO70tGT2qJkWD_-nTxo1Nuz3gT_De7dyEzIkgI7ntkjP5bnLwhZX9rs3n9VyuGkWYkFNJLTaFfCLJ9n0lhjhVxEO2-FNhBbehC_Li7YjJnjB8IIUiHDrKwdHsP9dZsqzJL6fT__-LDD5NBPLS-gkQUcHGylg"
             alt="Formateurs en collaboration"
             class="w-full h-full object-cover"
         >
@@ -25,12 +30,12 @@
             <div class="mb-8 text-center">
                 <div class="flex justify-center items-center mb-6">
                     <img
-                        src="{{ asset('images/simplon-logo.jpg') }}"
+                        src="{{ url('images/simplon-logo.jpg') }}"
                         alt="Simplon Africa"
                         class="h-16 w-auto"
                     >
                 </div>
-                <h1 class="text-4xl font-semibold text-gray-900 mb-2">Connexion Formateur</h1>
+                <h1 class="text-4xl font-semibold text-gray-900 mb-2">Connexion</h1>
                 <p class="text-sm text-gray-500">
                     Bienvenue sur votre espace. Connectez-vous pour suivre votre labellisation.
                 </p>
@@ -101,13 +106,6 @@
                     Se connecter
                 </button>
             </form>
-
-            <p class="mt-6 text-center text-xs text-gray-500">
-                Première connexion formateur ?
-                <a href="#" class="font-medium text-red-600 hover:text-red-700">
-                    Créer mon mot de passe
-                </a>
-            </p>
         </div>
     </div>
 </body>

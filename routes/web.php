@@ -24,9 +24,16 @@ use App\Http\Controllers\Formateur\CandidatureDocumentController as FormateurCan
 use App\Http\Controllers\Formateur\FormateurController;
 use App\Http\Controllers\Jury\JuryMemberController;
 use App\Http\Controllers\LogoutController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => view('welcome'));
+Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+    
+    return redirect()->route('login');
+});
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');

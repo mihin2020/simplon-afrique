@@ -14,22 +14,23 @@ class ActivationController extends Controller
 {
     public function showCreatePasswordForm(Request $request, User $user): View
     {
-        // Vérifier la signature en acceptant localhost ou 127.0.0.1
-        $isValid = $this->validateSignature($request, $user);
-
-        if (! $isValid) {
+        // Vérifier la signature de l'URL
+        if (! $this->validateSignature($request, $user)) {
             abort(403, 'Lien d\'activation invalide ou expiré.');
         }
 
-        // Extraire les paramètres de signature de la requête GET pour les utiliser dans le formulaire POST
-        $signature = $request->query('signature');
+        // Extraire la date d'expiration de la requête pour réutiliser la même expiration
         $expires = $request->query('expires');
 
-        // Construire l'URL POST signée avec les mêmes paramètres
-        $signedUrl = route('activation.store-password', ['user' => $user->id]);
-        if ($signature && $expires) {
-            $signedUrl .= '?signature='.urlencode($signature).'&expires='.urlencode($expires);
-        }
+        // Générer une nouvelle URL signée pour le formulaire POST avec la même expiration
+        // Si expires n'est pas présent, utiliser une expiration par défaut de 7 jours
+        $expiration = $expires ? now()->setTimestamp((int) $expires) : now()->addDays(7);
+        
+        $signedUrl = URL::temporarySignedRoute(
+            'activation.store-password',
+            $expiration,
+            ['user' => $user->id]
+        );
 
         return view('auth.create-password', [
             'user' => $user,
@@ -39,10 +40,8 @@ class ActivationController extends Controller
 
     public function createPassword(Request $request, User $user): RedirectResponse
     {
-        // Vérifier la signature en acceptant localhost ou 127.0.0.1
-        $isValid = $this->validateSignature($request, $user);
-
-        if (! $isValid) {
+        // Vérifier la signature de l'URL
+        if (! $this->validateSignature($request, $user)) {
             abort(403, 'Lien d\'activation invalide ou expiré.');
         }
 
@@ -59,54 +58,12 @@ class ActivationController extends Controller
     }
 
     /**
-     * Valide la signature de l'URL en acceptant localhost ou 127.0.0.1
+     * Valide la signature de l'URL signée temporairement
      */
     private function validateSignature(Request $request, User $user): bool
     {
-        // Essayer d'abord avec la vérification standard
-        if ($request->hasValidSignature()) {
-            return true;
-        }
-
-        // Si ça échoue, essayer avec l'autre domaine (localhost <-> 127.0.0.1)
-        $currentUrl = $request->getSchemeAndHttpHost();
-        $originalUrl = config('app.url');
-
-        // Si les URLs diffèrent (localhost vs 127.0.0.1), essayer de régénérer avec le bon domaine
-        if ($currentUrl !== $originalUrl) {
-            $originalUrlParsed = parse_url($originalUrl);
-            $currentUrlParsed = parse_url($currentUrl);
-
-            // Si seul le hostname diffère (localhost vs 127.0.0.1), accepter les deux
-            if (($originalUrlParsed['host'] ?? '') === 'localhost' &&
-                ($currentUrlParsed['host'] ?? '') === '127.0.0.1' ||
-                ($originalUrlParsed['host'] ?? '') === '127.0.0.1' &&
-                ($currentUrlParsed['host'] ?? '') === 'localhost') {
-
-                // Vérifier manuellement la signature en utilisant le path et les paramètres
-                $expires = $request->query('expires');
-                $signature = $request->query('signature');
-
-                if (! $expires || ! $signature) {
-                    return false;
-                }
-
-                // Vérifier l'expiration
-                if ((int) $expires < now()->timestamp) {
-                    return false;
-                }
-
-                // Reconstruire l'URL pour la vérification (sans le domaine)
-                $path = '/activation/'.$user->id;
-
-                // Générer la signature attendue
-                $key = config('app.key');
-                $expectedSignature = hash_hmac('sha256', $path.$expires, $key);
-
-                return hash_equals($expectedSignature, $signature);
-            }
-        }
-
-        return false;
+        // Utiliser la vérification native de Laravel qui gère automatiquement les signatures temporaires
+        // hasValidSignature() vérifie à la fois la signature et l'expiration
+        return $request->hasValidSignature();
     }
 }

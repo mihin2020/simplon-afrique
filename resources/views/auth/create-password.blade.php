@@ -28,7 +28,7 @@
             <div class="mb-8 text-center">
                 <div class="flex justify-center items-center mb-6">
                     <img
-                        src="{{ asset('images/simplon-logo.jpg') }}"
+                        src="{{ url('images/simplon-logo.jpg') }}"
                         alt="Simplon Africa"
                         class="h-16 w-auto"
                     >

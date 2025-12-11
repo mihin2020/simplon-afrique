@@ -44,13 +44,20 @@ class ResetPasswordNotification extends Notification
             'email' => $notifiable->email,
         ]);
 
+        // URL du logo Simplon (absolue pour les emails)
+        $baseUrl = URL::to('/');
+        if (! str_starts_with($baseUrl, 'http')) {
+            $baseUrl = config('app.url');
+        }
+        $logoUrl = rtrim($baseUrl, '/').'/images/simplon-logo.jpg';
+
         return (new MailMessage)
             ->subject('Réinitialisation de votre mot de passe - Simplon Africa')
-            ->greeting('Bonjour '.$notifiable->name.',')
-            ->line('Vous recevez cet email car nous avons reçu une demande de réinitialisation de mot de passe pour votre compte.')
-            ->action('Réinitialiser mon mot de passe', $resetUrl)
-            ->line('Ce lien de réinitialisation expirera dans 60 minutes.')
-            ->line('Si vous n\'avez pas demandé de réinitialisation de mot de passe, aucune action n\'est requise.');
+            ->view('emails.password-reset', [
+                'user' => $notifiable,
+                'resetUrl' => $resetUrl,
+                'logoUrl' => $logoUrl,
+            ]);
     }
 
     /**
