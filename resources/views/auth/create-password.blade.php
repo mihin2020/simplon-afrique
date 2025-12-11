@@ -15,7 +15,7 @@
     <!-- Colonne image -->
     <div class="hidden lg:flex w-1/2 relative min-h-screen">
         <img
-            src="https://images.pexels.com/photos/1181352/pexels-photo-1181352.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfX7TCztwyFFX3dNhY1Vji1IZzKMBEsgvLLJCaeKWiKbHr4f0M6DKjgq-lJcUOG8XdzGSFGJ0R5pHZt6lPxXnzJkjJ-AKLOYa5uTyxx4c653RR8tVO70tGT2qJkWD_-nTxo1Nuz3gT_De7dyEzIkgI7ntkjP5bnLwhZX9rs3n9VyuGkWYkFNJLTaFfCLJ9n0lhjhVxEO2-FNhBbehC_Li7YjJnjB8IIUiHDrKwdHsP9dZsqzJL6fT__-LDD5NBPLS-gkQUcHGylg"
             alt="Formateurs en collaboration"
             class="w-full h-full object-cover"
         >

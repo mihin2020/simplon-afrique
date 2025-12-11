@@ -341,6 +341,17 @@
                                 <p class="text-sm leading-relaxed mx-auto mb-4" style="color: #5a6a7a; max-width: 480px;">
                                     {{ $attestationText ?: 'Nous certifions que le/la formateur(trice) mentionné(e) ci-dessus a satisfait aux exigences du processus de labellisation et s\'est vu attribuer le badge correspondant à son niveau de compétences.' }}
                                 </p>
+                                
+                                <!-- Badge attribué -->
+                                @if($previewBadge && isset($badgeImages[$previewBadge->id]) && $badgeImages[$previewBadge->id])
+                                    <div class="flex flex-col items-center mb-4">
+                                        <img 
+                                            src="{{ $badgeImages[$previewBadge->id] }}" 
+                                            alt="{{ $previewBadge->label }}"
+                                            class="h-20 object-contain"
+                                        >
+                                    </div>
+                                @endif
                             </div>
                             
                             <!-- Pied - Signature à droite avec date au-dessus -->

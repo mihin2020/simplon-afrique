@@ -64,14 +64,14 @@ class BadgeAttestationSettings extends Component
         $this->directorTitle = $settings->director_title ?? '';
         $this->organizationName = $settings->organization_name ?? 'Simplon Africa';
         $this->attestationText = $settings->attestation_text ?? '';
-        $this->signaturePreview = $settings->signature_path ? Storage::url($settings->signature_path) : null;
-        $this->logoPreview = $settings->logo_path ? Storage::url($settings->logo_path) : null;
+        $this->signaturePreview = $settings->signature_path ? Storage::disk('public')->url($settings->signature_path) : null;
+        $this->logoPreview = $settings->logo_path ? Storage::disk('public')->url($settings->logo_path) : null;
 
         // Charger les images de badges existantes
         $badges = Badge::with('configuration')->orderBy('min_score')->get();
         foreach ($badges as $badge) {
             $this->badgeImages[$badge->id] = $badge->configuration?->image_path
-                ? Storage::url($badge->configuration->image_path)
+                ? Storage::disk('public')->url($badge->configuration->image_path)
                 : null;
         }
     }
@@ -107,7 +107,7 @@ class BadgeAttestationSettings extends Component
             ['image_path' => $path]
         );
 
-        $this->badgeImages[$badgeId] = Storage::url($path);
+        $this->badgeImages[$badgeId] = Storage::disk('public')->url($path);
         unset($this->tempBadgeImages[$badgeId]);
 
         session()->flash('success', 'Image du badge mise à jour avec succès.');
@@ -150,7 +150,7 @@ class BadgeAttestationSettings extends Component
                 Storage::disk('public')->delete($settings->signature_path);
             }
             $data['signature_path'] = $this->signature->store('attestation', 'public');
-            $this->signaturePreview = Storage::url($data['signature_path']);
+            $this->signaturePreview = Storage::disk('public')->url($data['signature_path']);
             $this->signature = null;
         }
 
@@ -160,7 +160,7 @@ class BadgeAttestationSettings extends Component
                 Storage::disk('public')->delete($settings->logo_path);
             }
             $data['logo_path'] = $this->logo->store('attestation', 'public');
-            $this->logoPreview = Storage::url($data['logo_path']);
+            $this->logoPreview = Storage::disk('public')->url($data['logo_path']);
             $this->logo = null;
         }
 
@@ -198,9 +198,24 @@ class BadgeAttestationSettings extends Component
     public function render()
     {
         $badges = Badge::with('configuration')->orderBy('min_score')->get();
+        
+        // Déterminer le badge à afficher dans l'aperçu (utiliser un score exemple de 15.0 pour badge intermédiaire)
+        $previewBadge = $this->getBadgeForPreview(15.0);
 
         return view('livewire.admin.badge-attestation-settings', [
             'badges' => $badges,
+            'previewBadge' => $previewBadge,
         ]);
+    }
+    
+    /**
+     * Détermine le badge à afficher dans l'aperçu basé sur un score exemple.
+     */
+    private function getBadgeForPreview(float $exampleScore): ?Badge
+    {
+        return Badge::where('min_score', '<=', $exampleScore)
+            ->where('max_score', '>=', $exampleScore)
+            ->orderBy('min_score', 'desc')
+            ->first();
     }
 }
