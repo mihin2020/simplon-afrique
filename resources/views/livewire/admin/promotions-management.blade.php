@@ -63,7 +63,7 @@
                             Organisation
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Administrateur
+                            Formateurs
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Apprenants
@@ -102,9 +102,17 @@
                                     @endif
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-4">
                                 <div class="text-sm text-gray-500">
-                                    {{ $promotion->admin->first_name }} {{ $promotion->admin->name }}
+                                    @if($promotion->formateurs->count() > 0)
+                                        @foreach($promotion->formateurs as $formateur)
+                                            <span class="inline-block px-2 py-1 bg-gray-100 rounded mr-1 mb-1">
+                                                {{ $formateur->first_name }} {{ $formateur->name }}
+                                            </span>
+                                        @endforeach
+                                    @else
+                                        <span class="text-gray-400">Aucun formateur</span>
+                                    @endif
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -154,21 +162,23 @@
     </div>
 
     <!-- Modal avec formulaire -->
-    @if($showModal)
-        <div 
-            class="fixed inset-0 z-50 overflow-y-auto" 
-            x-data="{ show: @entangle('showModal').live }" 
-            x-show="show"
-            x-transition:enter="ease-out duration-300"
-            x-transition:enter-start="opacity-0"
-            x-transition:enter-end="opacity-100"
-            x-transition:leave="ease-in duration-200"
-            x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0"
-            @close-promotion-form.window="show = false"
-            wire:ignore.self
-        >
-            @livewire('admin.promotion-form', key('promotion-form-'.($editingPromotionId ?? 'new')))
-        </div>
-    @endif
+    <div 
+        x-data="{ show: @entangle('showModal').live }"
+        x-show="show"
+        x-cloak
+        class="fixed inset-0 z-50 overflow-y-auto"
+        x-transition:enter="ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        @close-promotion-form.window="show = false"
+        wire:ignore.self
+        style="display: none;"
+    >
+        @if($showModal)
+            @livewire('admin.promotion-form', ['promotionId' => $editingPromotionId], key('promotion-form-'.($editingPromotionId ?? 'new')))
+        @endif
+    </div>
 </div>

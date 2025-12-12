@@ -2,10 +2,7 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\Organization;
 use App\Models\Promotion;
-use App\Models\Role;
-use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -69,7 +66,7 @@ class PromotionsManagement extends Component
 
     public function render()
     {
-        $query = Promotion::with(['organizations', 'admin', 'createdBy']);
+        $query = Promotion::with(['organizations', 'formateurs', 'createdBy']);
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -78,8 +75,8 @@ class PromotionsManagement extends Component
                     ->orWhereHas('organizations', function ($orgQ) {
                         $orgQ->where('name', 'like', '%'.$this->search.'%');
                     })
-                    ->orWhereHas('admin', function ($adminQ) {
-                        $adminQ->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhereHas('formateurs', function ($formateurQ) {
+                        $formateurQ->where('name', 'like', '%'.$this->search.'%')
                             ->orWhere('first_name', 'like', '%'.$this->search.'%')
                             ->orWhere('email', 'like', '%'.$this->search.'%');
                     });

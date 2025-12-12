@@ -73,6 +73,14 @@ class Promotion extends Model
     }
 
     /**
+     * Get all formateurs associated with this promotion.
+     */
+    public function formateurs(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'promotion_formateur', 'promotion_id', 'user_id')->withTimestamps();
+    }
+
+    /**
      * Get the admin associated with this promotion.
      */
     public function admin(): BelongsTo

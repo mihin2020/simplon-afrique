@@ -24,9 +24,9 @@ class PromotionForm extends Component
 
     public $selectedOrganizations = [];
 
-    public $numberOfLearners = '';
+    public $selectedFormateurs = [];
 
-    public $adminId = '';
+    public $numberOfLearners = '';
 
     protected $listeners = [
         'open-promotion-form' => 'openForm',
@@ -34,28 +34,43 @@ class PromotionForm extends Component
         'promotion-saved' => 'handlePromotionSaved',
     ];
 
-    public function openForm(array $data = []): void
+    public function mount(?string $promotionId = null): void
     {
-        $promotionId = $data['promotionId'] ?? null;
-
+        $this->promotionId = $promotionId;
         if ($promotionId) {
-            $promotion = Promotion::with('organizations')->findOrFail($promotionId);
-            $this->promotionId = $promotion->id;
-            $this->name = $promotion->name;
-            $this->startDate = $promotion->start_date->format('Y-m-d');
-            $this->endDate = $promotion->end_date->format('Y-m-d');
-            $this->country = $promotion->country;
-            $this->selectedOrganizations = $promotion->organizations->pluck('id')->toArray();
-            $this->numberOfLearners = $promotion->number_of_learners;
-            $this->adminId = $promotion->admin_id;
+            $this->loadPromotion($promotionId);
         } else {
             $this->resetForm();
         }
     }
 
+    public function openForm(array $data = []): void
+    {
+        $promotionId = $data['promotionId'] ?? null;
+
+        if ($promotionId) {
+            $this->loadPromotion($promotionId);
+        } else {
+            $this->resetForm();
+        }
+    }
+
+    protected function loadPromotion(string $promotionId): void
+    {
+        $promotion = Promotion::with(['organizations', 'formateurs'])->findOrFail($promotionId);
+        $this->promotionId = $promotion->id;
+        $this->name = $promotion->name;
+        $this->startDate = $promotion->start_date->format('Y-m-d');
+        $this->endDate = $promotion->end_date->format('Y-m-d');
+        $this->country = $promotion->country;
+        $this->selectedOrganizations = $promotion->organizations->pluck('id')->toArray();
+        $this->selectedFormateurs = $promotion->formateurs->pluck('id')->toArray();
+        $this->numberOfLearners = $promotion->number_of_learners;
+    }
+
     public function resetForm(): void
     {
-        $this->reset(['promotionId', 'name', 'startDate', 'endDate', 'country', 'selectedOrganizations', 'numberOfLearners', 'adminId']);
+        $this->reset(['promotionId', 'name', 'startDate', 'endDate', 'country', 'selectedOrganizations', 'selectedFormateurs', 'numberOfLearners']);
     }
 
     public function save(): void
@@ -67,8 +82,9 @@ class PromotionForm extends Component
             'country' => ['required', 'string', 'max:255'],
             'selectedOrganizations' => ['nullable', 'array'],
             'selectedOrganizations.*' => ['uuid', 'exists:organizations,id'],
+            'selectedFormateurs' => ['required', 'array', 'min:1'],
+            'selectedFormateurs.*' => ['uuid', 'exists:users,id'],
             'numberOfLearners' => ['required', 'integer', 'min:1'],
-            'adminId' => ['required', 'uuid', 'exists:users,id'],
         ];
 
         $this->validate($rules, [
@@ -77,11 +93,10 @@ class PromotionForm extends Component
             'endDate.required' => 'La date de fin est obligatoire.',
             'endDate.after' => 'La date de fin doit être postérieure à la date de début.',
             'country.required' => 'Le pays est obligatoire.',
-            'selectedOrganizations.array' => 'Les organisations doivent être un tableau.',
-            'selectedOrganizations.*.exists' => 'Une ou plusieurs organisations sélectionnées n\'existent pas.',
+            'selectedFormateurs.required' => 'Au moins un formateur doit être sélectionné.',
+            'selectedFormateurs.min' => 'Au moins un formateur doit être sélectionné.',
             'numberOfLearners.required' => 'Le nombre d\'apprenants est obligatoire.',
             'numberOfLearners.min' => 'Le nombre d\'apprenants doit être au moins 1.',
-            'adminId.required' => 'L\'administrateur associé est obligatoire.',
         ]);
 
         $data = [
@@ -90,7 +105,6 @@ class PromotionForm extends Component
             'end_date' => $this->endDate,
             'country' => $this->country,
             'number_of_learners' => $this->numberOfLearners,
-            'admin_id' => $this->adminId,
             'created_by' => Auth::id(),
         ];
 
@@ -98,10 +112,12 @@ class PromotionForm extends Component
             $promotion = Promotion::findOrFail($this->promotionId);
             $promotion->update($data);
             $promotion->organizations()->sync($this->selectedOrganizations ?? []);
+            $promotion->formateurs()->sync($this->selectedFormateurs ?? []);
             session()->flash('message', 'Promotion mise à jour avec succès.');
         } else {
             $promotion = Promotion::create($data);
             $promotion->organizations()->sync($this->selectedOrganizations ?? []);
+            $promotion->formateurs()->sync($this->selectedFormateurs ?? []);
             session()->flash('message', 'Promotion créée avec succès.');
         }
 
@@ -126,17 +142,63 @@ class PromotionForm extends Component
         $this->selectedOrganizations = array_values(array_diff($this->selectedOrganizations, [$organizationId]));
     }
 
+    public function removeFormateur(string $formateurId): void
+    {
+        $this->selectedFormateurs = array_values(array_diff($this->selectedFormateurs, [$formateurId]));
+    }
+
+    public function updatedCountry($value): void
+    {
+        $this->selectedOrganizations = [];
+    }
+
     public function render()
     {
-        $adminRole = Role::where('name', 'admin')->first();
-        $admins = $adminRole ? User::whereHas('roles', function ($query) use ($adminRole) {
-            $query->where('roles.id', $adminRole->id);
-        })->orderBy('name')->get() : collect();
+        $superAdminRole = Role::where('name', 'super_admin')->first();
+        $formateursQuery = User::query()->with('roles');
+
+        if ($superAdminRole) {
+            $formateursQuery->whereDoesntHave('roles', function ($query) use ($superAdminRole) {
+                $query->where('roles.id', $superAdminRole->id);
+            });
+        }
+
+        $formateurs = $formateursQuery->orderBy('name')->get();
+
+        // Charger les formateurs sélectionnés même s'ils ne sont pas dans la liste filtrée (pour l'édition)
+        $selectedFormateursData = collect();
+        if (!empty($this->selectedFormateurs)) {
+            $selectedFormateursData = User::whereIn('id', $this->selectedFormateurs)
+                ->with('roles')
+                ->get()
+                ->filter(function ($user) use ($superAdminRole) {
+                    if (!$superAdminRole) {
+                        return true;
+                    }
+                    return !$user->roles->contains('id', $superAdminRole->id);
+                });
+        }
+
+        $organizationsQuery = Organization::query();
+        if ($this->country) {
+            $organizationsQuery->where('country', $this->country);
+        }
+        $organizations = $organizationsQuery->orderBy('name')->get();
+
+        // Charger les organisations sélectionnées même si elles ne sont pas dans la liste filtrée (pour l'édition)
+        $selectedOrganizationsData = collect();
+        if (!empty($this->selectedOrganizations)) {
+            $selectedOrganizationsData = Organization::whereIn('id', $this->selectedOrganizations)
+                ->orderBy('name')
+                ->get();
+        }
 
         return view('livewire.admin.promotion-form', [
-            'organizations' => Organization::orderBy('name')->get(),
+            'organizations' => $organizations,
             'countries' => CountriesData::getCountries(),
-            'admins' => $admins,
+            'formateurs' => $formateurs,
+            'selectedFormateursData' => $selectedFormateursData,
+            'selectedOrganizationsData' => $selectedOrganizationsData,
         ]);
     }
 }
