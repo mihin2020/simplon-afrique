@@ -67,12 +67,21 @@
                     x-collapse
                     class="px-6 pb-6"
                 >
-                    <div class="space-y-4 pt-2 border-t border-gray-100">
+                    <div class="space-y-4 border-t border-gray-100 pt-4">
+                        @if($note->training_curriculum)
+                            <div>
+                                <h4 class="text-sm font-semibold text-gray-800 mb-1">Déroulé de la formation</h4>
+                                <div class="text-sm text-gray-700 whitespace-pre-line bg-blue-50 p-3 rounded-lg">
+                                    {{ preg_replace('/^\s+/m', '', trim($note->training_curriculum)) }}
+                                </div>
+                            </div>
+                        @endif
+
                         @if($note->difficulties)
                             <div>
                                 <h4 class="text-sm font-semibold text-gray-800 mb-1">Difficultés rencontrées</h4>
-                                <div class="text-sm text-gray-700 whitespace-pre-wrap bg-red-50 p-3 rounded-lg">
-                                    {{ $note->difficulties }}
+                                <div class="text-sm text-gray-700 whitespace-pre-line bg-red-50 p-3 rounded-lg">
+                                    {{ preg_replace('/^\s+/m', '', trim($note->difficulties)) }}
                                 </div>
                             </div>
                         @endif
@@ -80,8 +89,8 @@
                         @if($note->recommendations)
                             <div>
                                 <h4 class="text-sm font-semibold text-gray-800 mb-1">Recommandations</h4>
-                                <div class="text-sm text-gray-700 whitespace-pre-wrap bg-green-50 p-3 rounded-lg">
-                                    {{ $note->recommendations }}
+                                <div class="text-sm text-gray-700 whitespace-pre-line bg-green-50 p-3 rounded-lg">
+                                    {{ preg_replace('/^\s+/m', '', trim($note->recommendations)) }}
                                 </div>
                             </div>
                         @endif
@@ -89,8 +98,8 @@
                         @if($note->other)
                             <div>
                                 <h4 class="text-sm font-semibold text-gray-800 mb-1">Autre</h4>
-                                <div class="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
-                                    {{ $note->other }}
+                                <div class="text-sm text-gray-700 whitespace-pre-line bg-gray-50 p-3 rounded-lg">
+                                    {{ preg_replace('/^\s+/m', '', trim($note->other)) }}
                                 </div>
                             </div>
                         @endif

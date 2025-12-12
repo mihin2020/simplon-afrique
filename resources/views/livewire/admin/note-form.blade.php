@@ -50,23 +50,116 @@
                         </div>
 
                         @if($promotions->count() > 0)
-                            <div>
-                                <label for="promotionId" class="block text-sm font-medium text-gray-700 mb-1">
-                                    Promotion associée (optionnel)
+                            {{-- Section pour afficher toutes les promotions affiliées (lecture seule) --}}
+                            <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <label class="block text-sm font-medium text-gray-700 mb-3">
+                                    Promotions affiliées ({{ $promotions->count() }})
                                 </label>
-                                <select
-                                    id="promotionId"
-                                    wire:model="promotionId"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                                >
-                                    <option value="">Aucune promotion</option>
+                                
+                                <div class="space-y-2 max-h-48 overflow-y-auto">
                                     @foreach($promotions as $promotion)
-                                        <option value="{{ $promotion->id }}">{{ $promotion->name }}</option>
+                                        <div 
+                                            x-data="{ open: false }"
+                                            class="bg-white border border-gray-300 rounded-lg p-3 hover:border-red-300 transition-colors"
+                                        >
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex-1">
+                                                    <span class="text-sm font-medium text-gray-900">{{ $promotion->name }}</span>
+                                                    @if($promotion->country)
+                                                        <span class="text-xs text-gray-500 ml-2">• {{ $promotion->country }}</span>
+                                                    @endif
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    @click="open = !open"
+                                                    class="ml-2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                                    title="Voir les détails"
+                                                >
+                                                    <svg 
+                                                        class="w-5 h-5 transition-transform duration-200"
+                                                        :class="{ 'rotate-180': open }"
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            
+                                            {{-- Dropdown avec les détails de la promotion --}}
+                                            <div
+                                                x-show="open"
+                                                x-collapse
+                                                class="mt-2 pt-2 border-t border-gray-200"
+                                            >
+                                                <div class="space-y-2 text-xs text-gray-600">
+                                                    @if($promotion->start_date && $promotion->end_date)
+                                                        <div class="flex items-center gap-2">
+                                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                            </svg>
+                                                            <span>
+                                                                {{ $promotion->start_date->format('d/m/Y') }} - {{ $promotion->end_date->format('d/m/Y') }}
+                                                            </span>
+                                                        </div>
+                                                    @endif
+                                                    @if($promotion->number_of_learners)
+                                                        <div class="flex items-center gap-2">
+                                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                                            </svg>
+                                                            <span>{{ $promotion->number_of_learners }} apprenant(s)</span>
+                                                        </div>
+                                                    @endif
+                                                    @if($promotion->organizations && $promotion->organizations->count() > 0)
+                                                        <div class="flex items-start gap-2">
+                                                            <svg class="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                            </svg>
+                                                            <div class="flex-1">
+                                                                <span class="font-medium">Organisations:</span>
+                                                                <div class="flex flex-wrap gap-1 mt-1">
+                                                                    @foreach($promotion->organizations as $org)
+                                                                        <span class="inline-block px-2 py-0.5 bg-gray-100 rounded text-xs">
+                                                                            {{ $org->name }}
+                                                                        </span>
+                                                                    @endforeach
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
                                     @endforeach
-                                </select>
-                                @error('promotionId') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+                        @else
+                            {{-- Si aucune promotion, informer l'utilisateur --}}
+                            <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <p class="text-sm text-yellow-800">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Cet utilisateur n'est associé à aucune promotion.
+                                </p>
                             </div>
                         @endif
+
+                        <div>
+                            <label for="training_curriculum" class="block text-sm font-medium text-gray-700 mb-1">
+                                Déroulé de la formation
+                            </label>
+                            <textarea
+                                id="training_curriculum"
+                                wire:model="training_curriculum"
+                                rows="4"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                placeholder="Décrivez le déroulé de la formation..."
+                            ></textarea>
+                            @error('training_curriculum') <span class="text-sm text-red-600">{{ $message }}</span> @enderror
+                        </div>
 
                         <div>
                             <label for="difficulties" class="block text-sm font-medium text-gray-700 mb-1">

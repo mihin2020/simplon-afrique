@@ -13,6 +13,8 @@ class NoteForm extends Component
 
     public $title = '';
 
+    public $training_curriculum = '';
+
     public $difficulties = '';
 
     public $recommendations = '';
@@ -30,13 +32,14 @@ class NoteForm extends Component
 
     public function resetForm(): void
     {
-        $this->reset(['title', 'difficulties', 'recommendations', 'other', 'promotionId']);
+        $this->reset(['title', 'training_curriculum', 'difficulties', 'recommendations', 'other', 'promotionId']);
     }
 
     public function save(): void
     {
         $rules = [
             'title' => ['required', 'string', 'max:255'],
+            'training_curriculum' => ['nullable', 'string'],
             'difficulties' => ['nullable', 'string'],
             'recommendations' => ['nullable', 'string'],
             'other' => ['nullable', 'string'],
@@ -48,8 +51,8 @@ class NoteForm extends Component
         ]);
 
         // Au moins un des champs doit être rempli
-        if (empty($this->difficulties) && empty($this->recommendations) && empty($this->other)) {
-            $this->addError('difficulties', 'Au moins un des champs (Difficultés, Recommandations ou Autre) doit être rempli.');
+        if (empty($this->training_curriculum) && empty($this->difficulties) && empty($this->recommendations) && empty($this->other)) {
+            $this->addError('training_curriculum', 'Au moins un des champs (Déroulé de la formation, Difficultés, Recommandations ou Autre) doit être rempli.');
 
             return;
         }
@@ -58,6 +61,7 @@ class NoteForm extends Component
             'admin_id' => $this->admin->id,
             'created_by' => Auth::id(),
             'title' => $this->title,
+            'training_curriculum' => $this->training_curriculum ?: null,
             'difficulties' => $this->difficulties ?: null,
             'recommendations' => $this->recommendations ?: null,
             'other' => $this->other ?: null,
@@ -82,10 +86,21 @@ class NoteForm extends Component
 
     public function render()
     {
-        $promotions = $this->admin->promotions()->orderBy('name')->get();
+        // Récupérer toutes les promotions (formateur + admin) avec leurs organisations
+        $formateurPromotions = $this->admin->formateurPromotions()
+            ->with('organizations')
+            ->orderBy('name')
+            ->get();
+        $adminPromotions = $this->admin->promotions()
+            ->with('organizations')
+            ->orderBy('name')
+            ->get();
+        
+        // Combiner et dédupliquer
+        $allPromotions = $formateurPromotions->merge($adminPromotions)->unique('id')->sortBy('name');
 
         return view('livewire.admin.note-form', [
-            'promotions' => $promotions,
+            'promotions' => $allPromotions,
         ]);
     }
 }

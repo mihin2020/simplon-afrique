@@ -41,10 +41,26 @@ class FollowUpManagement extends Component
 
     public function render()
     {
-        $adminRole = Role::where('name', 'admin')->first();
-        $query = User::whereHas('roles', function ($q) use ($adminRole) {
-            $q->where('roles.id', $adminRole->id);
-        })->with(['promotions', 'promotionNotes']);
+        $superAdminRole = Role::where('name', 'super_admin')->first();
+        
+        // Récupérer formateurs ET administrateurs (sauf super_admin)
+        $query = User::query()
+            ->with([
+                'roles', // Eager load des rôles
+                'formateurPromotions', // Eager load des promotions via pivot (formateurs)
+                'promotions', // Eager load des promotions via admin_id (admins)
+            ])
+            ->whereHas('roles', function ($q) {
+                // Inclure formateurs ET administrateurs
+                $q->whereIn('roles.name', ['formateur', 'admin']);
+            });
+        
+        // Exclure super_admin
+        if ($superAdminRole) {
+            $query->whereDoesntHave('roles', function ($q) use ($superAdminRole) {
+                $q->where('roles.id', $superAdminRole->id);
+            });
+        }
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -54,19 +70,40 @@ class FollowUpManagement extends Component
             });
         }
 
-        $admins = $query->orderBy('name')->paginate(10);
+        $users = $query->orderBy('name')->paginate(10);
 
-        // Charger les statistiques pour chaque admin
-        $admins->getCollection()->transform(function ($admin) {
-            $admin->notes_count = $admin->promotionNotes()->count();
-            $admin->last_note_date = $admin->promotionNotes()->latest()->first()?->created_at;
-            $admin->promotion = $admin->promotions()->first();
+        // Récupérer tous les IDs des utilisateurs pour une requête optimisée
+        $userIds = $users->pluck('id')->toArray();
+        
+        // Une seule requête pour compter toutes les notes par utilisateur
+        $notesCounts = PromotionNote::whereIn('admin_id', $userIds)
+            ->selectRaw('admin_id, COUNT(*) as count')
+            ->groupBy('admin_id')
+            ->pluck('count', 'admin_id')
+            ->toArray();
 
-            return $admin;
+        // Une seule requête pour récupérer la dernière note par utilisateur
+        $lastNotes = PromotionNote::whereIn('admin_id', $userIds)
+            ->selectRaw('admin_id, MAX(created_at) as last_note_date')
+            ->groupBy('admin_id')
+            ->get()
+            ->keyBy('admin_id');
+
+        // Transformer la collection avec les données déjà chargées (pas de requêtes supplémentaires)
+        $users->getCollection()->transform(function ($user) use ($notesCounts, $lastNotes) {
+            // Combiner toutes les promotions (formateur + admin) - données déjà chargées
+            $allPromotions = $user->formateurPromotions->merge($user->promotions)->unique('id');
+            $user->all_promotions = $allPromotions;
+            
+            // Utiliser les données pré-calculées (pas de requêtes supplémentaires)
+            $user->notes_count = $notesCounts[$user->id] ?? 0;
+            $user->last_note_date = $lastNotes[$user->id]->last_note_date ?? null;
+
+            return $user;
         });
 
         return view('livewire.admin.follow-up-management', [
-            'admins' => $admins,
+            'users' => $users,
         ]);
     }
 }

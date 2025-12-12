@@ -120,6 +120,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get all promotions where this user is a formateur (via pivot table).
+     */
+    public function formateurPromotions(): BelongsToMany
+    {
+        return $this->belongsToMany(Promotion::class, 'promotion_formateur', 'user_id', 'promotion_id')->withTimestamps();
+    }
+
+    /**
      * Get all promotions created by this user.
      */
     public function createdPromotions(): HasMany

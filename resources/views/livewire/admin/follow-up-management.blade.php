@@ -13,8 +13,8 @@
 
     <!-- Header -->
     <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-        <h2 class="text-xl font-semibold text-gray-900">Liste des Administrateurs</h2>
-        <p class="text-sm text-gray-600 mt-1">Cliquez sur un administrateur pour voir ses notes</p>
+        <h2 class="text-xl font-semibold text-gray-900">Liste des Formateurs et Administrateurs</h2>
+        <p class="text-sm text-gray-600 mt-1">Cliquez sur un formateur ou administrateur pour voir ses notes</p>
     </div>
 
     <!-- Barre de recherche -->
@@ -24,7 +24,7 @@
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
-                    placeholder="Rechercher un administrateur..."
+                    placeholder="Rechercher un formateur ou administrateur..."
                     class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                 <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,17 +34,20 @@
         </div>
     </div>
 
-    <!-- Liste des administrateurs -->
+    <!-- Liste des formateurs et administrateurs -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Administrateur
+                            Formateur / Administrateur
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Promotion
+                            Rôle
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Promotions
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Nombre de notes
@@ -58,20 +61,41 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse($admins as $admin)
+                    @forelse($users as $user)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">
-                                    {{ $admin->first_name }} {{ $admin->name }}
+                                    {{ $user->first_name }} {{ $user->name }}
                                 </div>
                                 <div class="text-sm text-gray-500">
-                                    {{ $admin->email }}
+                                    {{ $user->email }}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex flex-wrap gap-1">
+                                    @foreach($user->roles as $role)
+                                        @if($role->name !== 'super_admin')
+                                            <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full
+                                                @if($role->name === 'admin') bg-blue-100 text-blue-800
+                                                @elseif($role->name === 'formateur') bg-green-100 text-green-800
+                                                @else bg-gray-100 text-gray-800
+                                                @endif">
+                                                {{ $role->label ?? ucfirst($role->name) }}
+                                            </span>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
                                 <div class="text-sm text-gray-500">
-                                    @if($admin->promotion)
-                                        {{ $admin->promotion->name }}
+                                    @if($user->all_promotions && $user->all_promotions->count() > 0)
+                                        <div class="flex flex-wrap gap-1">
+                                            @foreach($user->all_promotions as $promotion)
+                                                <span class="inline-block px-2 py-1 bg-gray-100 rounded text-xs">
+                                                    {{ $promotion->name }}
+                                                </span>
+                                            @endforeach
+                                        </div>
                                     @else
                                         <span class="text-gray-400">Aucune promotion</span>
                                     @endif
@@ -79,13 +103,13 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-500">
-                                    {{ $admin->notes_count }}
+                                    {{ $user->notes_count }}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-500">
-                                    @if($admin->last_note_date)
-                                        {{ $admin->last_note_date->format('d/m/Y H:i') }}
+                                    @if($user->last_note_date)
+                                        {{ \Carbon\Carbon::parse($user->last_note_date)->format('d/m/Y H:i') }}
                                     @else
                                         <span class="text-gray-400">Aucune note</span>
                                     @endif
@@ -93,7 +117,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <a
-                                    href="{{ route('admin.follow-up.show', $admin->id) }}"
+                                    href="{{ route('admin.follow-up.show', $user->id) }}"
                                     class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,8 +130,8 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500">
-                                Aucun administrateur trouvé.
+                            <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">
+                                Aucun formateur ou administrateur trouvé.
                             </td>
                         </tr>
                     @endforelse
@@ -117,7 +141,7 @@
 
         <!-- Pagination -->
         <div class="px-6 py-4 border-t border-gray-200">
-            {{ $admins->links() }}
+            {{ $users->links() }}
         </div>
     </div>
 </div>

@@ -46,6 +46,7 @@ class PromotionNote extends Model
         'title',
         'content',
         'note_type',
+        'training_curriculum',
         'difficulties',
         'recommendations',
         'other',
