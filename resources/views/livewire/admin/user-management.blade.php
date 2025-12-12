@@ -22,7 +22,11 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
-                Ajouter un {{ ($activeTab === 'formateurs' || !$this->isSuperAdmin()) ? 'Formateur' : 'Administrateur' }}
+                Ajouter un {{ match($activeTab) {
+                    'super_administrateurs' => 'Super Administrateur',
+                    'administrateurs' => 'Administrateur',
+                    default => 'Formateur',
+                } }}
             </button>
         </div>
 
@@ -42,6 +46,13 @@
                         {{ $activeTab === 'administrateurs' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600' }}"
                 >
                     Administrateurs
+                </button>
+                <button
+                    wire:click="switchTab('super_administrateurs')"
+                    class="px-4 py-2 text-sm font-medium border-b-2 transition
+                        {{ $activeTab === 'super_administrateurs' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-red-600' }}"
+                >
+                    Super Administrateurs
                 </button>
             @endif
         </div>
@@ -201,7 +212,12 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
                                 $userRole = $user->roles->first()?->name ?? 'formateur';
-                                $roleLabel = $userRole === 'formateur' ? 'Formateur' : ($userRole === 'admin' ? 'Administrateur' : ucfirst($userRole));
+                                $roleLabel = match($userRole) {
+                                    'formateur' => 'Formateur',
+                                    'admin' => 'Administrateur',
+                                    'super_admin' => 'Super Administrateur',
+                                    default => ucfirst($userRole),
+                                };
                                 $isReferent = $userRole === 'admin' && ($user->is_referent_pedagogique ?? false);
                                 
                                 // Pour les formateurs : vérifier la certification
@@ -218,7 +234,11 @@
                             @endphp
                             <div class="flex flex-col gap-1.5">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                    {{ $userRole === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800' }}">
+                                    {{ match($userRole) {
+                                        'admin' => 'bg-blue-100 text-blue-800',
+                                        'super_admin' => 'bg-red-100 text-red-800',
+                                        default => 'bg-purple-100 text-purple-800',
+                                    } }}">
                                     {{ $roleLabel }}
                                 </span>
                                 
@@ -346,7 +366,11 @@
                 @empty
                     <tr>
                         <td colspan="{{ ($this->isSuperAdmin() && $activeTab === 'administrateurs') ? 6 : 5 }}" class="px-6 py-12 text-center text-sm text-gray-500">
-                            Aucun {{ $activeTab === 'formateurs' ? 'formateur' : 'administrateur' }} trouvé.
+                            Aucun {{ match($activeTab) {
+                                'super_administrateurs' => 'super administrateur',
+                                'administrateurs' => 'administrateur',
+                                default => 'formateur',
+                            } }} trouvé.
                         </td>
                     </tr>
                 @endforelse
@@ -407,11 +431,17 @@
                     <form wire:submit.prevent="save">
                         <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">
-                                {{ $editingUserId ? 'Modifier l\'utilisateur' : 'Ajouter un ' . ($activeTab === 'formateurs' ? 'Formateur' : 'Administrateur') }}
+                                {{ $editingUserId ? 'Modifier l\'utilisateur' : 'Ajouter un ' . match($activeTab) {
+                                    'super_administrateurs' => 'Super Administrateur',
+                                    'administrateurs' => 'Administrateur',
+                                    default => 'Formateur',
+                                } }}
                             </h3>
 
                             <div class="space-y-4">
-                                @if($activeTab === 'formateurs' || $role === 'formateur')
+                                @if($activeTab === 'super_administrateurs' || $role === 'super_admin')
+                                    {{-- Pour super administrateur, seulement nom, prénom, email (pas de champs supplémentaires) --}}
+                                @elseif($activeTab === 'formateurs' || $role === 'formateur')
                                     {{-- Champs spécifiques aux formateurs --}}
                                     @php
                                         $currentUser = Auth::user();
@@ -692,7 +722,16 @@
                                         <label for="role" class="block text-sm font-medium text-gray-700 mb-1">
                                             Rôle
                                         </label>
-                                        @if($activeTab === 'administrateurs')
+                                        @if($activeTab === 'super_administrateurs')
+                                            {{-- Pour les super administrateurs, le rôle est fixe et non modifiable --}}
+                                            <input
+                                                type="text"
+                                                value="Super Administrateur"
+                                                disabled
+                                                class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                                            >
+                                            <input type="hidden" wire:model="role" value="super_admin">
+                                        @elseif($activeTab === 'administrateurs')
                                             {{-- Pour les administrateurs, le rôle est fixe et non modifiable --}}
                                             <input
                                                 type="text"
@@ -711,6 +750,7 @@
                                                 <option value="formateur">Formateur</option>
                                                 @if($this->isSuperAdmin())
                                                     <option value="admin">Administrateur</option>
+                                                    <option value="super_admin">Super Administrateur</option>
                                                 @endif
                                             </select>
                                         @endif

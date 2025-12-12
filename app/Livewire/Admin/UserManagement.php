@@ -108,8 +108,8 @@ class UserManagement extends Component
 
     public function switchTab(string $tab): void
     {
-        // Empêcher l'accès à l'onglet administrateurs si l'utilisateur n'est pas super_admin
-        if ($tab === 'administrateurs' && ! $this->isSuperAdmin()) {
+        // Empêcher l'accès aux onglets administrateurs et super_administrateurs si l'utilisateur n'est pas super_admin
+        if (($tab === 'administrateurs' || $tab === 'super_administrateurs') && ! $this->isSuperAdmin()) {
             return;
         }
 
@@ -127,10 +127,10 @@ class UserManagement extends Component
             $user = User::findOrFail($userId);
             $userRole = $user->roles->first()?->name ?? 'formateur';
 
-            // Empêcher la modification d'un admin si l'utilisateur n'est pas super_admin
-            if ($userRole === 'admin' && ! $this->isSuperAdmin()) {
+            // Empêcher la modification d'un admin ou super_admin si l'utilisateur n'est pas super_admin
+            if (($userRole === 'admin' || $userRole === 'super_admin') && ! $this->isSuperAdmin()) {
                 $this->closeModal();
-                session()->flash('error', 'Vous n\'avez pas la permission de modifier un administrateur.');
+                session()->flash('error', 'Vous n\'avez pas la permission de modifier cet utilisateur.');
 
                 return;
             }
@@ -159,6 +159,11 @@ class UserManagement extends Component
                 $this->reset(['country', 'selectedOrganizations', 'phoneCountryCode', 'phoneNumber', 'trainingType']);
             }
 
+            // Pour super_admin, ne pas charger de données supplémentaires
+            if ($userRole === 'super_admin') {
+                $this->reset(['country', 'selectedOrganizations', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedReferentOrganizations']);
+            }
+
             // Charger les données du référent pédagogique si c'est un admin
             if ($userRole === 'admin' && $this->isSuperAdmin()) {
                 $this->isReferentPedagogique = $user->is_referent_pedagogique ?? false;
@@ -169,8 +174,14 @@ class UserManagement extends Component
             }
         } else {
             $this->reset(['firstName', 'lastName', 'email', 'country', 'selectedOrganizations', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedReferentOrganizations']);
-            // Si l'utilisateur n'est pas super_admin, forcer le rôle formateur
-            $this->role = ($this->activeTab === 'formateurs' || ! $this->isSuperAdmin()) ? 'formateur' : 'admin';
+            // Définir le rôle selon l'onglet actif
+            if ($this->activeTab === 'super_administrateurs') {
+                $this->role = 'super_admin';
+            } elseif ($this->activeTab === 'administrateurs') {
+                $this->role = 'admin';
+            } else {
+                $this->role = 'formateur';
+            }
 
             // Si l'utilisateur connecté est référent pédagogique (et pas super_admin), définir automatiquement le pays
             if ($this->role === 'formateur' && Auth::check()) {
@@ -203,9 +214,9 @@ class UserManagement extends Component
 
     public function save(): void
     {
-        // Empêcher la création/modification d'admin si l'utilisateur n'est pas super_admin
-        if ($this->role === 'admin' && ! $this->isSuperAdmin()) {
-            session()->flash('error', 'Vous n\'avez pas la permission de créer ou modifier un administrateur.');
+        // Empêcher la création/modification d'admin ou super_admin si l'utilisateur n'est pas super_admin
+        if (($this->role === 'admin' || $this->role === 'super_admin') && ! $this->isSuperAdmin()) {
+            session()->flash('error', 'Vous n\'avez pas la permission de créer ou modifier cet utilisateur.');
 
             return;
         }
@@ -214,7 +225,7 @@ class UserManagement extends Component
             'firstName' => ['required', 'string', 'max:255'],
             'lastName' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,'.$this->editingUserId],
-            'role' => ['required', 'string', 'in:formateur,admin'],
+            'role' => ['required', 'string', 'in:formateur,admin,super_admin'],
         ];
 
         // Ajouter les règles de validation pour les formateurs uniquement
@@ -226,6 +237,8 @@ class UserManagement extends Component
             $rules['phoneNumber'] = ['nullable', 'string', 'max:30'];
             $rules['trainingType'] = ['nullable', 'string', 'in:interne,externe'];
         }
+
+        // Pour super_admin, pas de règles supplémentaires (seulement nom, prénom, email)
 
         // Ajouter les règles de validation pour les référents pédagogiques
         if ($this->role === 'admin' && $this->isSuperAdmin()) {
@@ -323,6 +336,8 @@ class UserManagement extends Component
                     $profile->organizations()->sync($this->selectedOrganizations ?? []);
                 }
             }
+
+            // Pour super_admin, pas de profil supplémentaire à créer/modifier
         } else {
             // Créer l'utilisateur avec un mot de passe temporaire (qui sera changé lors de l'activation)
             $user = User::create([
@@ -373,6 +388,8 @@ class UserManagement extends Component
                 // Synchroniser les organisations
                 $profile->organizations()->sync($this->selectedOrganizations ?? []);
             }
+
+            // Pour super_admin, pas de profil supplémentaire à créer
         }
 
         $wasEditing = (bool) $this->editingUserId;
@@ -392,9 +409,9 @@ class UserManagement extends Component
             return;
         }
 
-        // Empêcher la suppression d'un admin si l'utilisateur n'est pas super_admin
-        if ($userRole === 'admin' && ! $this->isSuperAdmin()) {
-            session()->flash('error', 'Vous n\'avez pas la permission de supprimer un administrateur.');
+        // Empêcher la suppression d'un admin ou super_admin si l'utilisateur n'est pas super_admin
+        if (($userRole === 'admin' || $userRole === 'super_admin') && ! $this->isSuperAdmin()) {
+            session()->flash('error', 'Vous n\'avez pas la permission de supprimer cet utilisateur.');
 
             return;
         }
@@ -405,7 +422,11 @@ class UserManagement extends Component
 
     public function render()
     {
-        $roleName = $this->activeTab === 'formateurs' ? 'formateur' : 'admin';
+        $roleName = match ($this->activeTab) {
+            'super_administrateurs' => 'super_admin',
+            'administrateurs' => 'admin',
+            default => 'formateur',
+        };
         $role = Role::where('name', $roleName)->first();
 
         $query = User::query()
@@ -420,8 +441,8 @@ class UserManagement extends Component
                 'formateurProfile',
                 'candidatures' => function ($q) {
                     $q->where('status', 'validated')
-                      ->with('badge');
-                }
+                        ->with('badge');
+                },
             ]);
         }
 
@@ -441,6 +462,7 @@ class UserManagement extends Component
             } elseif ($roleName === 'admin') {
                 $query->where('country', $this->filterCountry);
             }
+            // Pas de filtre pays pour super_admin
         }
 
         if ($this->filterOrganization) {
@@ -453,6 +475,7 @@ class UserManagement extends Component
                     $q->where('organizations.id', $this->filterOrganization);
                 });
             }
+            // Pas de filtre organisation pour super_admin
         }
 
         if ($this->search) {
@@ -489,6 +512,7 @@ class UserManagement extends Component
                             $orgQ->where('name', 'like', '%'.$term.'%');
                         });
                     }
+                    // Pas de recherche spéciale pour super_admin (recherche basique sur nom, prénom, email)
                 });
             }
         }
@@ -499,6 +523,7 @@ class UserManagement extends Component
         if ($roleName === 'admin') {
             $users->load('referentOrganizations');
         }
+        // Pas de chargement spécial pour super_admin
 
         // Filtrer les organisations selon le référent pédagogique
         $organizations = Organization::orderBy('name')->get();

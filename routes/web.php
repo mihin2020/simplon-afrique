@@ -31,7 +31,7 @@ Route::get('/', function () {
     if (Auth::check()) {
         return redirect()->route('dashboard');
     }
-    
+
     return redirect()->route('login');
 });
 
@@ -86,6 +86,9 @@ Route::middleware('auth')->group(function () {
     // Routes Admin / Super Admin
     Route::middleware('role:super_admin,admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [UserManagementController::class, 'dashboard'])->name('dashboard');
+        Route::get('/profile', function () {
+            return view('admin.profile');
+        })->name('profile');
         Route::get('/users', [UserManagementController::class, 'index'])->name('users');
         Route::get('/candidatures', [CandidatureManagementController::class, 'index'])->name('candidatures');
         Route::get('/certifications', [CertificationController::class, 'index'])->name('certifications');
