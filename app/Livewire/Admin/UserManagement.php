@@ -82,6 +82,30 @@ class UserManagement extends Component
         return $user->roles->contains('name', 'super_admin');
     }
 
+    /**
+     * Parse les termes de recherche séparés par des virgules.
+     * Nettoie et normalise chaque terme pour une recherche flexible.
+     *
+     * @return array<string>
+     */
+    private function parseSearchTerms(string $search): array
+    {
+        // Séparer par virgule
+        $terms = explode(',', $search);
+
+        // Nettoyer chaque terme : trim, supprimer les espaces multiples, filtrer les vides
+        $cleanedTerms = array_map(function ($term) {
+            // Trim et normaliser les espaces
+            $cleaned = trim($term);
+            $cleaned = preg_replace('/\s+/', ' ', $cleaned); // Remplacer les espaces multiples par un seul espace
+
+            return $cleaned;
+        }, $terms);
+
+        // Filtrer les termes vides
+        return array_filter($cleanedTerms, fn ($term) => ! empty($term));
+    }
+
     public function switchTab(string $tab): void
     {
         // Empêcher l'accès à l'onglet administrateurs si l'utilisateur n'est pas super_admin
@@ -390,6 +414,17 @@ class UserManagement extends Component
             })
             ->with(['roles', 'juryMembers.jury']);
 
+        // Pour les formateurs, charger aussi les candidatures validées avec leurs badges et le profil
+        if ($roleName === 'formateur') {
+            $query->with([
+                'formateurProfile',
+                'candidatures' => function ($q) {
+                    $q->where('status', 'validated')
+                      ->with('badge');
+                }
+            ]);
+        }
+
         // Appliquer les restrictions du référent pédagogique pour les formateurs
         if ($roleName === 'formateur' && Auth::check()) {
             /** @var User $currentUser */
@@ -421,29 +456,41 @@ class UserManagement extends Component
         }
 
         if ($this->search) {
-            $query->where(function ($q) use ($roleName) {
-                $q->where('first_name', 'like', '%'.$this->search.'%')
-                    ->orWhere('name', 'like', '%'.$this->search.'%')
-                    ->orWhere('email', 'like', '%'.$this->search.'%')
-                    ->orWhere('country', 'like', '%'.$this->search.'%'); // Pour les administrateurs
+            // Parser les termes de recherche séparés par des virgules
+            $searchTerms = $this->parseSearchTerms($this->search);
 
-                // Recherche dans le profil formateur (pays et organisations)
-                if ($roleName === 'formateur') {
-                    $q->orWhereHas('formateurProfile', function ($profileQ) {
-                        $profileQ->where('country', 'like', '%'.$this->search.'%')
-                            ->orWhereHas('organizations', function ($orgQ) {
-                                $orgQ->where('name', 'like', '%'.$this->search.'%');
-                            });
-                    });
-                }
+            // Pour chaque terme, on doit le trouver quelque part (AND logique entre les termes)
+            foreach ($searchTerms as $term) {
+                $query->where(function ($q) use ($roleName, $term) {
+                    $q->where('first_name', 'like', '%'.$term.'%')
+                        ->orWhere('name', 'like', '%'.$term.'%')
+                        ->orWhere('email', 'like', '%'.$term.'%')
+                        ->orWhere('country', 'like', '%'.$term.'%'); // Pour les administrateurs
 
-                // Recherche dans les organisations du référent (pour les administrateurs)
-                if ($roleName === 'admin') {
-                    $q->orWhereHas('referentOrganizations', function ($orgQ) {
-                        $orgQ->where('name', 'like', '%'.$this->search.'%');
-                    });
-                }
-            });
+                    // Recherche dans le profil formateur (pays, organisations, compétences, certifications)
+                    if ($roleName === 'formateur') {
+                        $q->orWhereHas('formateurProfile', function ($profileQ) use ($term) {
+                            $profileQ->where('country', 'like', '%'.$term.'%')
+                                ->orWhere('technical_profile', 'like', '%'.$term.'%')
+                                ->orWhere('years_of_experience', 'like', '%'.$term.'%')
+                                ->orWhere('training_type', 'like', '%'.$term.'%')
+                                ->orWhereHas('organizations', function ($orgQ) use ($term) {
+                                    $orgQ->where('name', 'like', '%'.$term.'%');
+                                })
+                                ->orWhereHas('certifications', function ($certQ) use ($term) {
+                                    $certQ->where('name', 'like', '%'.$term.'%');
+                                });
+                        });
+                    }
+
+                    // Recherche dans les organisations du référent (pour les administrateurs)
+                    if ($roleName === 'admin') {
+                        $q->orWhereHas('referentOrganizations', function ($orgQ) use ($term) {
+                            $orgQ->where('name', 'like', '%'.$term.'%');
+                        });
+                    }
+                });
+            }
         }
 
         $users = $query->latest()->paginate(10);

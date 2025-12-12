@@ -42,6 +42,7 @@ class Organization extends Model
      */
     protected $fillable = [
         'name',
+        'country',
     ];
 
     /**

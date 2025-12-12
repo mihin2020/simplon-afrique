@@ -154,7 +154,7 @@ class JuryController extends Controller
         $categories = $jury->evaluationGrid->categories()
             ->with(['criteria' => function ($query) {
                 $query->orderBy('display_order');
-            }, 'labellisationStep'])
+            }])
             ->orderBy('display_order')
             ->get();
 

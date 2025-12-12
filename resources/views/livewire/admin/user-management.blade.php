@@ -55,7 +55,7 @@
                     <input
                         type="text"
                         wire:model.live.debounce.300ms="search"
-                        placeholder="Rechercher par nom, prénom, email, pays ou organisation..."
+                        placeholder="Rechercher par nom, prénom, email, pays, organisation{{ $activeTab === 'formateurs' ? ', certification, compétence, profil technique' : '' }}... (séparer plusieurs termes par virgule)"
                         class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                     <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,7 +66,7 @@
             
             @if($activeTab === 'formateurs' || ($activeTab === 'administrateurs' && $this->isSuperAdmin()))
                 {{-- Filtres par pays et organisation --}}
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-4 flex-wrap">
                     <div class="w-64">
                         <label for="filterCountry" class="block text-xs font-medium text-gray-700 mb-1">
                             Filtrer par pays
@@ -203,12 +203,56 @@
                                 $userRole = $user->roles->first()?->name ?? 'formateur';
                                 $roleLabel = $userRole === 'formateur' ? 'Formateur' : ($userRole === 'admin' ? 'Administrateur' : ucfirst($userRole));
                                 $isReferent = $userRole === 'admin' && ($user->is_referent_pedagogique ?? false);
+                                
+                                // Pour les formateurs : vérifier la certification
+                                $isCertified = false;
+                                $badge = null;
+                                $formateurCountry = null;
+                                
+                                if ($userRole === 'formateur') {
+                                    $validatedCandidature = $user->candidatures->firstWhere('status', 'validated');
+                                    $isCertified = $validatedCandidature && $validatedCandidature->badge;
+                                    $badge = $isCertified ? $validatedCandidature->badge : null;
+                                    $formateurCountry = $user->formateurProfile?->country;
+                                }
                             @endphp
-                            <div class="flex flex-col gap-1">
+                            <div class="flex flex-col gap-1.5">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
                                     {{ $userRole === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800' }}">
                                     {{ $roleLabel }}
                                 </span>
+                                
+                                @if($userRole === 'formateur')
+                                    {{-- Badge de certification et niveau de labellisation --}}
+                                    @if($isCertified && $badge)
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                                </svg>
+                                                Certifié
+                                            </span>
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium 
+                                                {{ $badge->name === 'junior' ? 'bg-yellow-100 text-yellow-800' : ($badge->name === 'intermediaire' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800') }}">
+                                                <span class="text-sm">{{ $badge->getEmoji() }}</span>
+                                                <span>{{ $badge->label }}</span>
+                                            </span>
+                                        </div>
+                                    @endif
+                                    
+                                    {{-- Pays du formateur --}}
+                                    @if($formateurCountry)
+                                        @php
+                                            $countryData = collect($countries)->firstWhere('name', $formateurCountry);
+                                            $countryFlag = $countryData['flag'] ?? '🌍';
+                                        @endphp
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">
+                                            <span class="text-sm">{{ $countryFlag }}</span>
+                                            <span>{{ $formateurCountry }}</span>
+                                        </span>
+                                    @endif
+                                @endif
+                                
                                 @if($isReferent)
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                                         Référent pédagogique
