@@ -1,6 +1,6 @@
 <div class="space-y-6">
     <!-- Welcome Section -->
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-xl shadow-sm p-6 space-y-4">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-2xl font-bold text-gray-900 mb-2">
@@ -8,12 +8,12 @@
                         $user = auth()->user();
                         $firstName = trim($user->first_name ?? '');
                         $lastName = trim($user->name ?? '');
-                        
-                        if (!empty($firstName) && !empty($lastName)) {
+
+                        if (! empty($firstName) && ! empty($lastName)) {
                             $fullName = $firstName . ' ' . $lastName;
-                        } elseif (!empty($firstName)) {
+                        } elseif (! empty($firstName)) {
                             $fullName = $firstName;
-                        } elseif (!empty($lastName)) {
+                        } elseif (! empty($lastName)) {
                             $fullName = $lastName;
                         } else {
                             $fullName = 'Formateur';
@@ -31,7 +31,7 @@
                     ->whereIn('status', ['draft', 'submitted', 'in_review'])
                     ->exists();
             @endphp
-            @if(!$hasActiveCandidature)
+            @if (! $hasActiveCandidature)
                 <a
                     href="{{ route('formateur.create-candidature') }}"
                     class="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
@@ -43,6 +43,39 @@
                 </a>
             @endif
         </div>
+
+        @if($this->trainerNotification)
+            <div class="border border-amber-300 bg-amber-50 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                    <p class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">
+                        Information importante
+                    </p>
+                    <h3 class="text-sm md:text-base font-semibold text-gray-900 mb-1">
+                        {{ $this->trainerNotification->title }}
+                    </h3>
+                    <p class="text-sm text-gray-700 mb-1">
+                        {{ $this->trainerNotification->description }}
+                    </p>
+                    @if($this->trainerNotification->deadline_at)
+                        <p class="text-xs text-gray-500">
+                            Date limite : {{ $this->trainerNotification->deadline_at->format('d/m/Y') }}
+                        </p>
+                    @endif
+                </div>
+                <div class="flex-shrink-0">
+                    <button
+                        type="button"
+                        wire:click="expressInterest"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Je suis intéressé(e)
+                    </button>
+                </div>
+            </div>
+        @endif
     </div>
 
     <!-- Badge Status Card -->

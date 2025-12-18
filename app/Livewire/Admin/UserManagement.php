@@ -200,6 +200,40 @@ class UserManagement extends Component
         $this->reset(['editingUserId', 'firstName', 'lastName', 'email', 'role', 'country', 'selectedOrganizations', 'phoneCountryCode', 'phoneNumber', 'trainingType', 'isReferentPedagogique', 'referentCountry', 'selectedReferentOrganizations']);
     }
 
+    /**
+     * Mettre à jour les organisations disponibles quand le pays change pour les formateurs.
+     */
+    public function updatedCountry(): void
+    {
+        if ($this->role === 'formateur' && ! empty($this->country) && ! empty($this->selectedOrganizations)) {
+            // Filtrer les organisations sélectionnées pour ne garder que celles du pays sélectionné
+            $organizationsInCountry = Organization::where('country', $this->country)
+                ->whereIn('id', $this->selectedOrganizations)
+                ->pluck('id')
+                ->toArray();
+
+            // Désélectionner les organisations qui ne correspondent pas au nouveau pays
+            $this->selectedOrganizations = array_intersect($this->selectedOrganizations, $organizationsInCountry);
+        }
+    }
+
+    /**
+     * Mettre à jour les organisations disponibles quand le pays change pour les administrateurs référents.
+     */
+    public function updatedReferentCountry(): void
+    {
+        if ($this->role === 'admin' && $this->isReferentPedagogique && ! empty($this->referentCountry) && ! empty($this->selectedReferentOrganizations)) {
+            // Filtrer les organisations sélectionnées pour ne garder que celles du pays sélectionné
+            $organizationsInCountry = Organization::where('country', $this->referentCountry)
+                ->whereIn('id', $this->selectedReferentOrganizations)
+                ->pluck('id')
+                ->toArray();
+
+            // Désélectionner les organisations qui ne correspondent pas au nouveau pays
+            $this->selectedReferentOrganizations = array_intersect($this->selectedReferentOrganizations, $organizationsInCountry);
+        }
+    }
+
     public function openDetailsModal(string $userId): void
     {
         $this->viewingUser = User::with(['formateurProfile.organizations', 'formateurProfile.certifications', 'roles'])->find($userId);
@@ -525,8 +559,44 @@ class UserManagement extends Component
         }
         // Pas de chargement spécial pour super_admin
 
-        // Filtrer les organisations selon le référent pédagogique
-        $organizations = Organization::orderBy('name')->get();
+        // Filtrer les organisations selon le référent pédagogique et le pays sélectionné
+        $organizationsQuery = Organization::query();
+
+        // Filtrer par pays si un pays est sélectionné dans le formulaire
+        $selectedCountry = null;
+        if ($this->showModal) {
+            if ($this->role === 'formateur' && ! empty($this->country)) {
+                $selectedCountry = $this->country;
+            } elseif ($this->role === 'admin' && $this->isReferentPedagogique && ! empty($this->referentCountry)) {
+                $selectedCountry = $this->referentCountry;
+            }
+        }
+
+        // Conserver les organisations déjà sélectionnées même si elles ne correspondent pas au filtre
+        $selectedOrgIds = [];
+        if ($this->showModal) {
+            if ($this->role === 'formateur' && ! empty($this->selectedOrganizations)) {
+                $selectedOrgIds = $this->selectedOrganizations;
+            } elseif ($this->role === 'admin' && ! empty($this->selectedReferentOrganizations)) {
+                $selectedOrgIds = $this->selectedReferentOrganizations;
+            }
+        }
+
+        // Filtrer par pays si un pays est sélectionné
+        if ($selectedCountry) {
+            // Si des organisations sont déjà sélectionnées, les inclure aussi pour éviter de perdre les sélections
+            if (! empty($selectedOrgIds)) {
+                $organizationsQuery->where(function ($q) use ($selectedCountry, $selectedOrgIds) {
+                    $q->where('country', $selectedCountry)
+                        ->orWhereIn('id', $selectedOrgIds);
+                });
+            } else {
+                // Sinon, filtrer strictement par pays
+                $organizationsQuery->where('country', $selectedCountry);
+            }
+        }
+
+        // Appliquer les restrictions du référent pédagogique pour les formateurs
         if (Auth::check() && $this->activeTab === 'formateurs') {
             /** @var User $currentUser */
             $currentUser = Auth::user();
@@ -534,13 +604,22 @@ class UserManagement extends Component
                 // Ne montrer que les organisations assignées au référent pédagogique
                 $referentOrganizations = $currentUser->referentOrganizations()->pluck('organizations.id')->toArray();
                 if (! empty($referentOrganizations)) {
-                    $organizations = Organization::whereIn('id', $referentOrganizations)->orderBy('name')->get();
+                    $organizationsQuery->whereIn('id', $referentOrganizations);
                 } else {
                     // Si le référent n'a pas d'organisations assignées, ne pas afficher d'organisations
                     $organizations = collect([]);
+
+                    return view('livewire.admin.user-management', [
+                        'users' => $users,
+                        'organizations' => $organizations,
+                        'countries' => CountriesData::getCountries(),
+                        'phoneCountryCodes' => CountriesData::getPhoneCountryCodes(),
+                    ]);
                 }
             }
         }
+
+        $organizations = $organizationsQuery->orderBy('name')->get();
 
         return view('livewire.admin.user-management', [
             'users' => $users,

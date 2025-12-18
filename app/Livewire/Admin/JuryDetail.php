@@ -48,6 +48,8 @@ class JuryDetail extends Component
         $query = Jury::with([
             'candidatures.user',
             'candidatures.badge',
+            'candidature.user',
+            'candidature.badge',
             'members.user.roles',
             'evaluationGrid.categories.criteria',
         ]);
@@ -203,24 +205,11 @@ class JuryDetail extends Component
             $juryMember = $this->jury->members()->first();
         }
 
-        // Charger les candidatures disponibles
-        $candidaturesMany = $this->jury->candidatures()
+        // Charger les candidatures disponibles en utilisant l'accessor
+        // Les relations user et currentStep sont déjà chargées via with() dans loadJury()
+        $availableCandidatures = $this->jury->all_candidatures
             ->whereIn('status', ['in_review'])
-            ->with('user', 'currentStep')
-            ->get();
-
-        $candidatureSingle = collect();
-        if ($this->jury->candidature_id) {
-            $cand = \App\Models\Candidature::where('id', $this->jury->candidature_id)
-                ->whereIn('status', ['in_review'])
-                ->with('user', 'currentStep')
-                ->first();
-            if ($cand) {
-                $candidatureSingle = collect([$cand]);
-            }
-        }
-
-        $availableCandidatures = $candidaturesMany->merge($candidatureSingle)->unique('id')->values();
+            ->values();
 
         // Charger les données d'évaluation pour chaque candidature
         $evaluationsData = [];

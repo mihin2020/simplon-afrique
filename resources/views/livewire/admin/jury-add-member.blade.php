@@ -31,7 +31,7 @@
                         </label>
                         <select
                             id="selectedUserId"
-                            wire:model="selectedUserId"
+                            wire:model.live="selectedUserId"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                         >
                             <option value="">-- Choisir un administrateur --</option>
@@ -44,21 +44,36 @@
                         </p>
                     </div>
 
-                    <!-- Sélection profil -->
-                    <div>
-                        <label for="selectedRole" class="block text-sm font-medium text-gray-700 mb-2">
-                            Profil dans le jury
-                        </label>
-                        <select
-                            id="selectedRole"
-                            wire:model="selectedRole"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                        >
-                            @foreach($roleOptions as $value => $label)
-                                <option value="{{ $value }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <!-- Sélection profil (masqué si l'utilisateur est déjà référent pédagogique) -->
+                    @if(!$this->selectedUserIsReferent)
+                        <div>
+                            <label for="selectedRole" class="block text-sm font-medium text-gray-700 mb-2">
+                                Profil dans le jury
+                            </label>
+                            <select
+                                id="selectedRole"
+                                wire:model="selectedRole"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                            >
+                                @foreach($roleOptions as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @else
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Profil dans le jury
+                            </label>
+                            <div class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600">
+                                Référent Pédagogique (déjà référent)
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">
+                                Cet administrateur est déjà référent pédagogique, son profil est automatiquement défini.
+                            </p>
+                            <input type="hidden" wire:model="selectedRole" value="referent_pedagogique">
+                        </div>
+                    @endif
 
                     <!-- Bouton -->
                     <div class="flex items-end">

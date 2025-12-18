@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\Candidature;
 use App\Models\CandidatureStep;
+use App\Models\Evaluation;
 use App\Models\Jury;
 use App\Models\LabellisationStep;
 use Illuminate\Support\Facades\Auth;
@@ -160,6 +161,20 @@ class CandidatureDetail extends Component
             // Vérifier si la candidature a déjà un jury assigné
             $existingJury = $this->candidature->juries->first();
             if ($existingJury && $existingJury->id !== $jury->id) {
+                // Vérifier s'il y a des évaluations soumises pour l'ancien jury
+                $hasEvaluations = Evaluation::where('candidature_id', $this->candidature->id)
+                    ->where('jury_id', $existingJury->id)
+                    ->where('status', 'submitted')
+                    ->exists();
+
+                if ($hasEvaluations) {
+                    session()->flash('error', 'Impossible de remplacer le jury. Des évaluations ont déjà été soumises par les membres du jury actuel. Vous devez d\'abord supprimer les évaluations avant de pouvoir changer de jury.');
+                    $this->selectedJuryId = $existingJury->id; // Réinitialiser la sélection
+                    $this->loadCandidature();
+
+                    return;
+                }
+
                 // Retirer l'ancien jury
                 $this->candidature->juries()->detach($existingJury->id);
 
@@ -187,6 +202,20 @@ class CandidatureDetail extends Component
             $assignedJury = $this->candidature->juries->first();
 
             if ($assignedJury) {
+                // Vérifier s'il y a des évaluations soumises pour cette candidature
+                $hasEvaluations = Evaluation::where('candidature_id', $this->candidature->id)
+                    ->where('jury_id', $assignedJury->id)
+                    ->where('status', 'submitted')
+                    ->exists();
+
+                if ($hasEvaluations) {
+                    session()->flash('error', 'Impossible de retirer le jury. Des évaluations ont déjà été soumises par les membres du jury. Vous devez d\'abord supprimer les évaluations avant de pouvoir retirer le jury.');
+                    $this->selectedJuryId = $assignedJury->id; // Réinitialiser la sélection
+                    $this->loadCandidature();
+
+                    return;
+                }
+
                 $juryName = $assignedJury->name;
                 $this->candidature->juries()->detach();
 
@@ -231,11 +260,22 @@ class CandidatureDetail extends Component
             $this->candidature->juries->isNotEmpty()
         );
 
+        // Vérifier s'il y a des évaluations soumises pour le jury assigné
+        $hasEvaluations = false;
+        $assignedJury = $this->candidature->juries->first();
+        if ($assignedJury) {
+            $hasEvaluations = Evaluation::where('candidature_id', $this->candidature->id)
+                ->where('jury_id', $assignedJury->id)
+                ->where('status', 'submitted')
+                ->exists();
+        }
+
         return view('livewire.admin.candidature-detail', [
             'availableJuries' => $availableJuries,
             'roleOptions' => $roleOptions,
             'isSuperAdmin' => $isSuperAdmin,
             'canAssignJury' => $canAssignJury,
+            'hasEvaluations' => $hasEvaluations,
         ]);
     }
 }

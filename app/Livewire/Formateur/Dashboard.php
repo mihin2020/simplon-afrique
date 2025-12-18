@@ -6,7 +6,11 @@ use App\Models\Evaluation;
 use App\Models\JobApplication;
 use App\Models\JobOffer;
 use App\Models\Jury;
+use App\Models\TrainerNotification;
+use App\Mail\TrainerNotificationInterestMail;
 use App\Services\EvaluationCalculationService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -19,6 +23,64 @@ class Dashboard extends Component
     public string $jobOfferContractFilter = '';
 
     public string $jobOfferRemoteFilter = '';
+
+    public ?TrainerNotification $trainerNotification = null;
+
+    /**
+     * Déclare le rendu initial du composant.
+     */
+    public function mount(): void
+    {
+        $this->loadTrainerNotification();
+    }
+
+    /**
+     * Charge la notification formateur active (si elle existe).
+     */
+    private function loadTrainerNotification(): void
+    {
+        $this->trainerNotification = TrainerNotification::query()
+            ->where('is_active', true)
+            ->where(function ($query) {
+                $query->whereNull('deadline_at')
+                    ->orWhere('deadline_at', '>=', now());
+            })
+            ->latest('created_at')
+            ->first();
+    }
+
+    /**
+     * Action lorsqu'un formateur clique sur "Je suis intéressé".
+     */
+    public function expressInterest(): void
+    {
+        if (! $this->trainerNotification) {
+            $this->loadTrainerNotification();
+        }
+
+        if (! $this->trainerNotification) {
+            return;
+        }
+
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (! $user || ! $user->isFormateur()) {
+            return;
+        }
+
+        // Envoyer un email à tous les super administrateurs
+        $superAdmins = \App\Models\User::whereHas('roles', function ($query) {
+            $query->where('name', 'super_admin');
+        })->get();
+
+        foreach ($superAdmins as $admin) {
+            Mail::to($admin->email)->send(new TrainerNotificationInterestMail(
+                notification: $this->trainerNotification,
+                formateur: $user
+            ));
+        }
+    }
 
     public function updatingJobOfferContractFilter(): void
     {

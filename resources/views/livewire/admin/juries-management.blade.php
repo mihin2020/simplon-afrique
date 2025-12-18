@@ -107,16 +107,44 @@
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div>
-                                    <div class="text-sm font-medium text-gray-700 mb-1">Candidature assignée</div>
-                                    @if($jury->candidatures->isNotEmpty())
-                                        @foreach($jury->candidatures as $candidature)
-                                            <div class="text-sm text-gray-900">
-                                                {{ $candidature->user->name }}
-                                            </div>
-                                            <div class="text-xs text-gray-500">
-                                                {{ $candidature->user->email }}
-                                            </div>
-                                        @endforeach
+                                    <div class="text-sm font-medium text-gray-700 mb-1">
+                                        Candidature assignée
+                                        @if($jury->all_candidatures->isNotEmpty())
+                                            <span class="text-gray-500 font-normal">({{ $jury->all_candidatures->count() }})</span>
+                                        @endif
+                                    </div>
+                                    @if($jury->all_candidatures->isNotEmpty())
+                                        @php
+                                            $maxDisplay = 3; // Nombre maximum de candidatures à afficher par défaut
+                                            $candidatures = $jury->all_candidatures;
+                                            $totalCount = $candidatures->count();
+                                        @endphp
+                                        <div x-data="{ showAll: false }" class="space-y-2">
+                                            @foreach($candidatures as $candidature)
+                                                <div x-show="showAll || {{ $loop->index }} < {{ $maxDisplay }}" 
+                                                     x-transition
+                                                     class="text-sm text-gray-900">
+                                                    @php
+                                                        $firstName = $candidature->user->first_name ?? '';
+                                                        $lastName = $candidature->user->name ?? '';
+                                                        $fullName = trim($firstName . ' ' . $lastName);
+                                                    @endphp
+                                                    <div class="font-medium">{{ $fullName ?: $candidature->user->name }}</div>
+                                                    <div class="text-xs text-gray-500 mt-0.5">
+                                                        {{ $candidature->user->email }}
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                            @if($totalCount > $maxDisplay)
+                                                <button 
+                                                    @click="showAll = !showAll"
+                                                    class="text-xs text-red-600 hover:text-red-700 font-medium mt-1 focus:outline-none"
+                                                >
+                                                    <span x-show="!showAll">Voir toutes les candidatures ({{ $totalCount - $maxDisplay }} de plus)</span>
+                                                    <span x-show="showAll">Voir moins</span>
+                                                </button>
+                                            @endif
+                                        </div>
                                     @else
                                         <span class="text-sm text-gray-400">Aucune candidature assignée</span>
                                     @endif

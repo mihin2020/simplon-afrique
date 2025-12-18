@@ -22,6 +22,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Formateur\AttestationController;
 use App\Http\Controllers\Formateur\CandidatureDocumentController as FormateurCandidatureDocumentController;
 use App\Http\Controllers\Formateur\FormateurController;
+use App\Http\Controllers\Admin\TrainerNotificationController;
 use App\Http\Controllers\Jury\JuryMemberController;
 use App\Http\Controllers\LogoutController;
 use Illuminate\Support\Facades\Auth;
@@ -158,6 +159,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/job-offers/{jobOffer}/attachment', [JobOfferController::class, 'downloadAttachment'])->name('job-offers.attachment');
         Route::get('/job-application/{application}', [JobOfferController::class, 'showApplication'])->name('job-application.show');
         Route::get('/job-application/{application}/cv', [JobOfferController::class, 'downloadApplicationCv'])->name('job-application.cv');
+
+        // Routes Notifications formateurs - Super Admin uniquement
+        Route::get('/trainer-notifications', [TrainerNotificationController::class, 'index'])->name('trainer-notifications.index');
+        Route::post('/trainer-notifications', [TrainerNotificationController::class, 'store'])->name('trainer-notifications.store');
+        Route::patch('/trainer-notifications/{notification}', [TrainerNotificationController::class, 'toggle'])->name('trainer-notifications.toggle');
     });
 
     // Routes Jury

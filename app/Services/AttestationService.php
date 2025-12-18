@@ -37,7 +37,11 @@ class AttestationService
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => true,
             'defaultFont' => 'DejaVu Sans',
+            'enable-local-file-access' => true,
         ]);
+        
+        // Forcer une seule page
+        $pdf->setOption('page-break-inside', 'avoid');
 
         // Nom du fichier
         $filename = sprintf(

@@ -5,6 +5,9 @@ namespace App\Livewire\Formateur;
 use App\Models\Candidature;
 use App\Models\CandidatureStep;
 use App\Models\LabellisationStep;
+use App\Models\Role;
+use App\Models\User;
+use App\Notifications\FormateurCandidatureSubmittedNotification;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -148,6 +151,18 @@ class CreateCandidature extends Component
             'labellisation_step_id' => $firstStep->id,
             'status' => 'in_progress',
         ]);
+
+        // Envoyer une notification à tous les super admins
+        $superAdminRole = Role::where('name', 'super_admin')->first();
+        if ($superAdminRole) {
+            $superAdmins = User::whereHas('roles', function ($query) use ($superAdminRole) {
+                $query->where('roles.id', $superAdminRole->id);
+            })->get();
+
+            foreach ($superAdmins as $superAdmin) {
+                $superAdmin->notify(new FormateurCandidatureSubmittedNotification($candidature));
+            }
+        }
 
         // Réinitialiser le formulaire
         $this->reset(['motivationLetter', 'motivationLetterPreview', 'additionalAttachments', 'attachmentPreviews']);

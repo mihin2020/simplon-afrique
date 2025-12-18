@@ -17,6 +17,14 @@
             box-sizing: border-box;
         }
         
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 297mm;
+            height: 210mm;
+            overflow: hidden;
+        }
+        
         body {
             font-family: 'DejaVu Sans', sans-serif;
             background: #dc2626;
@@ -25,18 +33,23 @@
         }
         
         .certificate-wrapper {
-            width: 100%;
-            height: 100vh;
+            width: 297mm;
+            height: 210mm;
             padding: 12px;
             background: #dc2626;
+            position: relative;
+            page-break-after: avoid;
+            page-break-inside: avoid;
         }
         
         .certificate-container {
-            width: 100%;
-            height: 100%;
-            background: #f8f5f0;
+            width: calc(297mm - 24px);
+            height: calc(210mm - 24px);
+            background: #ffffff;
             position: relative;
             overflow: hidden;
+            page-break-after: avoid;
+            page-break-inside: avoid;
         }
         
         /* Bordure dorée intérieure */
@@ -48,6 +61,7 @@
             bottom: 18px;
             border: 2px solid #c9a227;
             pointer-events: none;
+            z-index: 1;
         }
         
         /* Coins décoratifs */
@@ -56,6 +70,7 @@
             width: 50px;
             height: 50px;
             border: 2px solid #c9a227;
+            z-index: 2;
         }
         
         .corner-tl {
@@ -93,6 +108,7 @@
             height: 6px;
             background: #c9a227;
             border-radius: 50%;
+            z-index: 3;
         }
         
         .dot-tl { top: 30px; left: 30px; }
@@ -119,9 +135,11 @@
             top: 30px;
             left: 40px;
             right: 40px;
-            bottom: 30px;
-            z-index: 1;
+            bottom: 80px;
+            z-index: 10;
             text-align: center;
+            overflow: hidden;
+            page-break-inside: avoid;
         }
         
         /* En-tête - Titre principal */
@@ -182,9 +200,10 @@
         /* Section pied de page - Signature à droite */
         .footer-section {
             position: absolute;
-            bottom: 40px;
+            bottom: 30px;
             right: 70px;
             text-align: center;
+            page-break-inside: avoid;
         }
         
         /* Date et lieu */
@@ -305,6 +324,33 @@
                 <p class="certification-text">
                     {{ $settings->attestation_text ?? 'Nous certifions que le/la formateur(trice) mentionné(e) ci-dessus a satisfait aux exigences du processus de labellisation et s\'est vu attribuer le badge correspondant à son niveau de compétences.' }}
                 </p>
+                
+                <!-- Badge attribué (après le texte de certification) -->
+                @if($badge)
+                    @php
+                        // Récupérer l'image du badge depuis la configuration si elle existe
+                        $badgeImageBase64 = null;
+                        if ($badge->configuration && $badge->configuration->image_path) {
+                            $fullPath = storage_path('app/public/' . $badge->configuration->image_path);
+                            if (file_exists($fullPath)) {
+                                $imageData = file_get_contents($fullPath);
+                                $imageMime = mime_content_type($fullPath);
+                                $badgeImageBase64 = 'data:' . $imageMime . ';base64,' . base64_encode($imageData);
+                            }
+                        }
+                    @endphp
+                    <div style="margin: 25px auto 20px; text-align: center;">
+                        @if($badgeImageBase64)
+                            <!-- Afficher l'image du badge depuis la configuration -->
+                            <img src="{{ $badgeImageBase64 }}" alt="{{ $badge->label ?? $badge->name }}" style="max-width: 120px; max-height: 120px; height: auto; display: block; margin: 0 auto;">
+                        @else
+                            <!-- Afficher l'emoji par défaut si pas d'image configurée -->
+                            <div style="font-size: 48px; line-height: 1;">
+                                {{ $badge->getEmoji() }}
+                            </div>
+                        @endif
+                    </div>
+                @endif
             </div>
             
             <!-- Pied de page - Date et Signature à droite -->

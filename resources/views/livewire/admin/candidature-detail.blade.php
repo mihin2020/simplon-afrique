@@ -180,8 +180,8 @@
                     <select
                         id="selectedJuryId"
                         wire:model.live="selectedJuryId"
-                        @if(!$canAssignJury) disabled @endif
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition @if(!$canAssignJury) bg-gray-100 cursor-not-allowed opacity-60 @endif"
+                        @if(!$canAssignJury || $hasEvaluations) disabled @endif
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition @if(!$canAssignJury || $hasEvaluations) bg-gray-100 cursor-not-allowed opacity-60 @endif"
                     >
                         <option value="">-- Sélectionner un jury --</option>
                         @foreach($availableJuries as $jury)
@@ -221,6 +221,14 @@
                             </svg>
                             <span>L'assignation est automatique et le statut de la candidature passe en "En examen".</span>
                         </p>
+                        @if($hasEvaluations)
+                            <p class="text-xs text-amber-600 flex items-center gap-1 font-medium">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                </svg>
+                                <span>⚠️ Le jury ne peut pas être modifié car des évaluations ont été soumises.</span>
+                            </p>
+                        @endif
                     </div>
                     @if($availableJuries->isEmpty())
                         <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -236,6 +244,21 @@
 
                 @if($candidature->juries->isNotEmpty())
                     <div class="mt-6 pt-6 border-t border-gray-200">
+                        @if($hasEvaluations)
+                            <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                <div class="flex items-start gap-3">
+                                    <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="text-sm font-semibold text-amber-800 mb-1">Attention : Évaluations en cours</p>
+                                        <p class="text-xs text-amber-700">
+                                            Des évaluations ont déjà été soumises par les membres du jury. Vous ne pouvez plus retirer ou modifier le jury assigné. Pour changer de jury, vous devez d'abord supprimer toutes les évaluations existantes.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
                         <div class="flex items-center gap-2 mb-4">
                             <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>

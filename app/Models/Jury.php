@@ -57,6 +57,18 @@ class Jury extends Model
     }
 
     /**
+     * Get all candidatures assigned to this jury (from both pivot table and direct relation).
+     * This accessor merges candidatures from jury_candidature pivot table and candidature_id field.
+     */
+    public function getAllCandidaturesAttribute()
+    {
+        $candidaturesFromPivot = $this->candidatures ?? collect();
+        $candidatureFromDirect = $this->candidature ? collect([$this->candidature]) : collect();
+
+        return $candidaturesFromPivot->merge($candidatureFromDirect)->unique('id')->values();
+    }
+
+    /**
      * Get categories linked to a specific step.
      */
     public function getCategoriesForStep(string $stepId)

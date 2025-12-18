@@ -87,9 +87,17 @@ class JuryAddMember extends Component
             return;
         }
 
-        // Valider le rôle
-        $validRoles = ['referent_pedagogique', 'directeur_pedagogique', 'formateur_senior'];
-        $role = in_array($this->selectedRole, $validRoles) ? $this->selectedRole : 'referent_pedagogique';
+        // Récupérer l'utilisateur sélectionné
+        $selectedUser = User::find($this->selectedUserId);
+
+        // Si l'utilisateur est référent pédagogique, forcer le rôle à referent_pedagogique
+        if ($selectedUser && $selectedUser->isReferentPedagogique()) {
+            $role = 'referent_pedagogique';
+        } else {
+            // Valider le rôle pour les autres utilisateurs
+            $validRoles = ['referent_pedagogique', 'directeur_pedagogique', 'formateur_senior'];
+            $role = in_array($this->selectedRole, $validRoles) ? $this->selectedRole : 'referent_pedagogique';
+        }
 
         // Créer le membre
         JuryMember::create([
@@ -199,6 +207,34 @@ class JuryAddMember extends Component
 
         $this->message = $memberName.' a été retiré du jury.';
         $this->messageType = 'success';
+    }
+
+    /**
+     * Vérifier si l'utilisateur sélectionné est référent pédagogique.
+     */
+    public function getSelectedUserIsReferentProperty(): bool
+    {
+        if (empty($this->selectedUserId)) {
+            return false;
+        }
+
+        $user = User::find($this->selectedUserId);
+
+        return $user && $user->isReferentPedagogique();
+    }
+
+    /**
+     * Réinitialiser le rôle quand l'utilisateur change.
+     */
+    public function updatedSelectedUserId(): void
+    {
+        // Si l'utilisateur sélectionné est référent pédagogique, définir automatiquement le rôle
+        if ($this->selectedUserIsReferent) {
+            $this->selectedRole = 'referent_pedagogique';
+        } else {
+            // Sinon, réinitialiser à la valeur par défaut
+            $this->selectedRole = 'referent_pedagogique';
+        }
     }
 
     public function render()

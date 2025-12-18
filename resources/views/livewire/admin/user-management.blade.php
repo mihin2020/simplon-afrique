@@ -117,8 +117,8 @@
                                 @foreach($countries as $countryItem)
                                     <button
                                         type="button"
-                                        @click="selected = '{{ $countryItem['name'] }}'; $wire.set('filterCountry', '{{ $countryItem['name'] }}'); open = false"
-                                        :class="selected === '{{ $countryItem['name'] }}' ? 'bg-red-50' : ''"
+                                        @click="selected = '{{ addslashes($countryItem['name']) }}'; $wire.set('filterCountry', '{{ addslashes($countryItem['name']) }}'); open = false"
+                                        :class="selected === '{{ addslashes($countryItem['name']) }}' ? 'bg-red-50' : ''"
                                         class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm"
                                     >
                                         <span class="text-xl">{{ $countryItem['flag'] }}</span>
@@ -489,8 +489,8 @@
                                                         @foreach($countries as $countryItem)
                                                             <button
                                                                 type="button"
-                                                                @click="selected = '{{ $countryItem['name'] }}'; $wire.set('country', '{{ $countryItem['name'] }}'); open = false"
-                                                                :class="selected === '{{ $countryItem['name'] }}' ? 'bg-red-50' : ''"
+                                                                @click="selected = '{{ addslashes($countryItem['name']) }}'; $wire.set('country', '{{ addslashes($countryItem['name']) }}'); open = false"
+                                                                :class="selected === '{{ addslashes($countryItem['name']) }}' ? 'bg-red-50' : ''"
                                                                 class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
                                                             >
                                                                 <span class="text-xl">{{ $countryItem['flag'] }}</span>
@@ -815,10 +815,13 @@
                                                                 Sélectionner un pays
                                                             </button>
                                                             @foreach($countries as $countryItem)
+                                                                @php
+                                                                    $countryNameEscaped = addslashes($countryItem['name']);
+                                                                @endphp
                                                                 <button
                                                                     type="button"
-                                                                    @click="selected = '{{ $countryItem['name'] }}'; $wire.set('referentCountry', '{{ $countryItem['name'] }}'); open = false"
-                                                                    :class="selected === '{{ $countryItem['name'] }}' ? 'bg-red-50' : ''"
+                                                                    @click="selected = '{{ $countryNameEscaped }}'; $wire.set('referentCountry', '{{ $countryNameEscaped }}'); open = false"
+                                                                    :class="selected === '{{ $countryNameEscaped }}' ? 'bg-red-50' : ''"
                                                                     class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
                                                                 >
                                                                     <span class="text-xl">{{ $countryItem['flag'] }}</span>

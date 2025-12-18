@@ -49,7 +49,7 @@ class JuriesManagement extends Component
         $user = auth()->user()->load('roles');
         $isSuperAdmin = $user->roles->contains('name', 'super_admin');
 
-        $query = Jury::with(['candidatures.user', 'members.user', 'evaluationGrid'])
+        $query = Jury::with(['candidatures.user', 'candidature.user', 'members.user', 'evaluationGrid'])
             ->latest();
 
         // Filtrage selon le rôle
@@ -64,6 +64,10 @@ class JuriesManagement extends Component
             $query->where(function ($q) {
                 $q->where('name', 'like', '%'.$this->search.'%')
                     ->orWhereHas('candidatures.user', function ($subQ) {
+                        $subQ->where('name', 'like', '%'.$this->search.'%')
+                            ->orWhere('email', 'like', '%'.$this->search.'%');
+                    })
+                    ->orWhereHas('candidature.user', function ($subQ) {
                         $subQ->where('name', 'like', '%'.$this->search.'%')
                             ->orWhere('email', 'like', '%'.$this->search.'%');
                     });

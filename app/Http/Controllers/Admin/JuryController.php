@@ -13,6 +13,8 @@ use App\Models\Jury;
 use App\Models\JuryMember;
 use App\Models\LabellisationSetting;
 use App\Models\LabellisationStep;
+use App\Notifications\LabellisationRejectedNotification;
+use App\Notifications\LabellisationValidatedNotification;
 use App\Services\EvaluationCalculationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -412,6 +414,9 @@ class JuryController extends Controller
             ]);
         }
 
+        // Charger les relations nécessaires
+        $candidature->load(['user', 'badge']);
+
         // Récupérer l'étape "Certification"
         $certificationStep = LabellisationStep::where('name', 'certification')->first();
 
@@ -428,6 +433,10 @@ class JuryController extends Controller
                 'badge_id' => $badge?->id,
                 'badge_awarded_at' => $badge ? now() : null,
             ]);
+
+            // Recharger la candidature avec le badge
+            $candidature->refresh();
+            $candidature->load(['user', 'badge']);
 
             // Créer ou mettre à jour le CandidatureStep pour l'étape Certification
             if ($certificationStep) {
@@ -456,14 +465,30 @@ class JuryController extends Controller
                 }
             }
 
-            $message = 'La candidature a été approuvée. Le badge a été attribué au formateur.';
+            // Envoyer l'email de validation au formateur
+            try {
+                $candidature->user->notify(new LabellisationValidatedNotification($candidature));
+            } catch (\Exception $e) {
+                // Log l'erreur mais ne bloque pas la validation
+                Log::error('Erreur lors de l\'envoi de l\'email de validation: '.$e->getMessage());
+            }
+
+            $message = 'La candidature a été approuvée. Le badge a été attribué au formateur. Un email a été envoyé au formateur.';
         } else {
             $candidature->update([
                 'status' => 'rejected',
                 'current_step_id' => $certificationStep?->id,
             ]);
 
-            $message = 'La candidature a été rejetée.';
+            // Envoyer l'email de rejet au formateur
+            try {
+                $candidature->user->notify(new LabellisationRejectedNotification($candidature));
+            } catch (\Exception $e) {
+                // Log l'erreur mais ne bloque pas le rejet
+                Log::error('Erreur lors de l\'envoi de l\'email de rejet: '.$e->getMessage());
+            }
+
+            $message = 'La candidature a été rejetée. Un email a été envoyé au formateur.';
         }
 
         return redirect()
