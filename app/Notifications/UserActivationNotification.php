@@ -44,13 +44,7 @@ class UserActivationNotification extends Notification
         );
 
         // URL du logo Simplon (absolue pour les emails)
-        // Construire l'URL absolue en utilisant l'URL de base de l'application
-        // Si URL::forceRootUrl() a été appelé, URL::to() l'utilisera automatiquement
-        $baseUrl = \Illuminate\Support\Facades\URL::to('/');
-        // S'assurer que c'est une URL absolue
-        if (! str_starts_with($baseUrl, 'http')) {
-            $baseUrl = config('app.url');
-        }
+        $baseUrl = config('app.url') ?: URL::to('/');
         $logoUrl = rtrim($baseUrl, '/').'/images/simplon-logo.jpg';
 
         return (new MailMessage)

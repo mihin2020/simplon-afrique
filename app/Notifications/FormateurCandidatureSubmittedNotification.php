@@ -43,10 +43,7 @@ class FormateurCandidatureSubmittedNotification extends Notification
         $candidatureUrl = URL::route('admin.candidature.show', $this->candidature->id, absolute: true);
 
         // URL du logo Simplon (absolue pour les emails)
-        $baseUrl = URL::to('/');
-        if (! str_starts_with($baseUrl, 'http')) {
-            $baseUrl = config('app.url');
-        }
+        $baseUrl = config('app.url') ?: URL::to('/');
         $logoUrl = rtrim($baseUrl, '/').'/images/simplon-logo.jpg';
 
         return (new MailMessage)
@@ -73,4 +70,5 @@ class FormateurCandidatureSubmittedNotification extends Notification
         ];
     }
 }
+
 

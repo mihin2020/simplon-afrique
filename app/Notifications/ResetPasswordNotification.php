@@ -45,10 +45,7 @@ class ResetPasswordNotification extends Notification
         ]);
 
         // URL du logo Simplon (absolue pour les emails)
-        $baseUrl = URL::to('/');
-        if (! str_starts_with($baseUrl, 'http')) {
-            $baseUrl = config('app.url');
-        }
+        $baseUrl = config('app.url') ?: URL::to('/');
         $logoUrl = rtrim($baseUrl, '/').'/images/simplon-logo.jpg';
 
         return (new MailMessage)

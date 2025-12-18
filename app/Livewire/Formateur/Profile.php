@@ -73,7 +73,7 @@ class Profile extends Component
             $this->technicalProfile = $profile->technical_profile;
             $this->yearsOfExperience = $profile->years_of_experience;
             $this->portfolioUrl = $profile->portfolio_url;
-            $this->photoPreview = $profile->photo_path ? Storage::disk('public')->url($profile->photo_path) : null;
+            $this->photoPreview = $profile->photo_path ? asset('storage/' . $profile->photo_path) : null;
             // Extraire le nom original du fichier
             if ($profile->cv_path) {
                 $filename = basename($profile->cv_path);
@@ -200,7 +200,7 @@ class Profile extends Component
             // Stocker la nouvelle photo
             $path = $this->photo->store('formateurs/photos', 'public');
             $data['photo_path'] = $path;
-            $this->photoPreview = Storage::disk('public')->url($path);
+            $this->photoPreview = asset('storage/' . $path);
         }
 
         if ($this->cv) {
